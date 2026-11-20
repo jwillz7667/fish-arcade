@@ -41,18 +41,18 @@ Then summarize what you built, how you tested it, and anything left unfinished.
 
 ## 1. Decisions locked for this build
 
-| Decision | Default used in this playbook |
-|---|---|
-| Money rail | Bitcoin on-chain only. No cards, no ACH, no Lightning in v1 |
-| Deposit receiving | Self-hosted BTCPay Server, watch-only, pointed at the cold multisig. No deposit keys on any server |
-| Cold treasury | 2-of-3 multisig, hardware wallets from 2 vendors, keys in 3 locations |
-| Payout hot wallet | Single-sig P2WPKH, key generated inside AWS KMS (secp256k1), non-exportable, float capped |
-| Signer | Separate service in an isolated subnet with its own hard limits |
-| Pricing | USD. 1 SC = $1 prize value. BTC amount set at invoice creation (deposits) and at send time (payouts) |
-| Confirmations | GC at 1 conf. SC bonus at 3 conf. Redemptions blocked until all deposits reach 6 conf |
-| Network fees on payouts | Platform pays, batched every 30 min, capped per batch |
-| Compliance | KYC, geofence, AMOE, responsible gaming unchanged from the spec. Adds sanctions and risk screening on every deposit and payout address |
-| Stack | TypeScript, pnpm + Turborepo, NestJS, Colyseus, Postgres + Prisma, Redis + BullMQ, PixiJS, Next.js, AWS |
+| Decision                | Default used in this playbook                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Money rail              | Bitcoin on-chain only. No cards, no ACH, no Lightning in v1                                                                            |
+| Deposit receiving       | Self-hosted BTCPay Server, watch-only, pointed at the cold multisig. No deposit keys on any server                                     |
+| Cold treasury           | 2-of-3 multisig, hardware wallets from 2 vendors, keys in 3 locations                                                                  |
+| Payout hot wallet       | Single-sig P2WPKH, key generated inside AWS KMS (secp256k1), non-exportable, float capped                                              |
+| Signer                  | Separate service in an isolated subnet with its own hard limits                                                                        |
+| Pricing                 | USD. 1 SC = $1 prize value. BTC amount set at invoice creation (deposits) and at send time (payouts)                                   |
+| Confirmations           | GC at 1 conf. SC bonus at 3 conf. Redemptions blocked until all deposits reach 6 conf                                                  |
+| Network fees on payouts | Platform pays, batched every 30 min, capped per batch                                                                                  |
+| Compliance              | KYC, geofence, AMOE, responsible gaming unchanged from the spec. Adds sanctions and risk screening on every deposit and payout address |
+| Stack                   | TypeScript, pnpm + Turborepo, NestJS, Colyseus, Postgres + Prisma, Redis + BullMQ, PixiJS, Next.js, AWS                                |
 
 ### Needs your call (or counsel's) before mainnet
 
@@ -69,14 +69,14 @@ The playbook ships placeholder values for all of these in config. Nothing touche
 
 ## 2. Phase overview
 
-| Phase | Steps | Result |
-|---|---|---|
-| A. Foundation | 1 to 9 | Repo, money types, database, ledger, API, auth, geo, KYC, admin auth |
-| B. Bitcoin rails | 10 to 16 | Regtest stack, price oracle, screening, deposits, redemptions, signer, treasury |
-| C. Game core | 17 to 22 | Math, simulator, fish paths, game server, escrow, slots and keno |
-| D. Clients | 23 to 26 | Player shell, fish client, slot and keno clients, back office |
-| E. Product systems | 27 to 28 | Promotions, AMOE, responsible gaming, affiliates |
-| F. Hardening and launch | 29 to 33 | Observability, infrastructure, security testing, load tests, launch |
+| Phase                   | Steps    | Result                                                                          |
+| ----------------------- | -------- | ------------------------------------------------------------------------------- |
+| A. Foundation           | 1 to 9   | Repo, money types, database, ledger, API, auth, geo, KYC, admin auth            |
+| B. Bitcoin rails        | 10 to 16 | Regtest stack, price oracle, screening, deposits, redemptions, signer, treasury |
+| C. Game core            | 17 to 22 | Math, simulator, fish paths, game server, escrow, slots and keno                |
+| D. Clients              | 23 to 26 | Player shell, fish client, slot and keno clients, back office                   |
+| E. Product systems      | 27 to 28 | Promotions, AMOE, responsible gaming, affiliates                                |
+| F. Hardening and launch | 29 to 33 | Observability, infrastructure, security testing, load tests, launch             |
 
 ---
 

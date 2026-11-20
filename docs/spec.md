@@ -1,12 +1,12 @@
 # Project Reef: Fish Arcade Gaming Platform Spec
 
-| | |
-|---|---|
-| Working name | Project Reef (swap for final brand) |
-| Version | 0.2 draft (Bitcoin payments and payouts, see section 22) |
-| Date | 2026-11-20 |
-| Reference product | Fire Kirin (fish table sweepstakes platform) |
-| Status | Draft. Section 4 and section 21 need a lawyer before build past Phase 1 |
+|                   |                                                                         |
+| ----------------- | ----------------------------------------------------------------------- |
+| Working name      | Project Reef (swap for final brand)                                     |
+| Version           | 0.2 draft (Bitcoin payments and payouts, see section 22)                |
+| Date              | 2026-11-20                                                              |
+| Reference product | Fire Kirin (fish table sweepstakes platform)                            |
+| Status            | Draft. Section 4 and section 21 need a lawyer before build past Phase 1 |
 
 ---
 
@@ -66,18 +66,18 @@ The site blocks automated access, so its contents were not reviewed. The domain 
 
 ## 3. Keep vs. change
 
-| Area | Fire Kirin | Reef |
-|---|---|---|
-| Game experience | Multiplayer fish tables, slots, arcade | Same genre, original art, names, audio |
-| Platforms | Sideloaded APK + H5 portals | H5/PWA primary, Android wrapper, iOS via web |
-| Account creation | Agent issues credentials | Self-serve signup with OTP, age and location gate |
-| Buying credits | Pay an agent off-platform | Buy Gold Coin packages with Bitcoin through platform-issued invoices, Sweeps Coins included free |
-| Free entry | Not a real path | AMOE by mail plus daily online free entry |
-| Cash out | Message agent, agent pays | In-app redemption request, KYC, Bitcoin payout from the platform wallet to a verified address |
-| Back office | Agents add/deduct credits at will | RBAC, reason codes, dual approval, nobody sells credits |
-| Distribution | Multi-tier agent network | Affiliate program, max 2 tiers, no custody of player funds |
-| Math | Opaque, adjustable "pool" | Fixed RTP per certified config, disclosed, lab tested |
-| Oversight | None | Geofence, KYC/AML, responsible gaming tools, audit logs, official rules |
+| Area             | Fire Kirin                             | Reef                                                                                             |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Game experience  | Multiplayer fish tables, slots, arcade | Same genre, original art, names, audio                                                           |
+| Platforms        | Sideloaded APK + H5 portals            | H5/PWA primary, Android wrapper, iOS via web                                                     |
+| Account creation | Agent issues credentials               | Self-serve signup with OTP, age and location gate                                                |
+| Buying credits   | Pay an agent off-platform              | Buy Gold Coin packages with Bitcoin through platform-issued invoices, Sweeps Coins included free |
+| Free entry       | Not a real path                        | AMOE by mail plus daily online free entry                                                        |
+| Cash out         | Message agent, agent pays              | In-app redemption request, KYC, Bitcoin payout from the platform wallet to a verified address    |
+| Back office      | Agents add/deduct credits at will      | RBAC, reason codes, dual approval, nobody sells credits                                          |
+| Distribution     | Multi-tier agent network               | Affiliate program, max 2 tiers, no custody of player funds                                       |
+| Math             | Opaque, adjustable "pool"              | Fixed RTP per certified config, disclosed, lab tested                                            |
+| Oversight        | None                                   | Geofence, KYC/AML, responsible gaming tools, audit logs, official rules                          |
 
 ---
 
@@ -87,11 +87,11 @@ The site blocks automated access, so its contents were not reviewed. The domain 
 
 ### 4.1 Operating modes (set per state)
 
-| Mode | What's on | Notes |
-|---|---|---|
-| S (Social) | Gold Coins only, nothing redeemable | Lowest risk. App store rules still apply |
+| Mode                        | What's on                                            | Notes                                        |
+| --------------------------- | ---------------------------------------------------- | -------------------------------------------- |
+| S (Social)                  | Gold Coins only, nothing redeemable                  | Lowest risk. App store rules still apply     |
 | P (Promotional sweepstakes) | Gold Coins + Sweeps Coins redeemable for cash prizes | Requires AMOE, official rules, KYC, geofence |
-| X (Blocked) | Nothing | Signup and play refused |
+| X (Blocked)                 | Nothing                                              | Signup and play refused                      |
 
 Config table: `jurisdictions(state_code, mode, min_age, sc_redemption_enabled, fish_games_enabled, effective_from, legal_memo_ref)`. Only the Compliance role can change it. Every change is audited and takes effect at a scheduled time, not instantly mid-session.
 
@@ -108,19 +108,19 @@ Config table: `jurisdictions(state_code, mode, min_age, sc_redemption_enabled, f
 
 **Likely Mode X (specific bans or existing-law positions reported in 2025 to 2026):**
 
-| State | Basis reported |
-|---|---|
-| California | AB 831, effective Jan 1, 2026, also covers support activities |
-| New York | S5935A signed Dec 2025 |
-| New Jersey | Statute treats paid sweepstakes entry as unlawful gambling |
-| Maine | LD 2007 |
-| Indiana | HB 1052, effective Jul 1, 2026 |
-| Tennessee | SB 2136, signed May 2026 |
-| Louisiana | HB 53 (Act 48), treats sweepstakes gambling as racketeering |
-| Oklahoma | Effective Nov 1, 2026 |
-| Washington | Existing law (RCW 9.46.240) |
-| Michigan | Enforcement history against fish game apps |
-| Idaho, Montana, Connecticut | Commonly listed as restricting fish games |
+| State                       | Basis reported                                                |
+| --------------------------- | ------------------------------------------------------------- |
+| California                  | AB 831, effective Jan 1, 2026, also covers support activities |
+| New York                    | S5935A signed Dec 2025                                        |
+| New Jersey                  | Statute treats paid sweepstakes entry as unlawful gambling    |
+| Maine                       | LD 2007                                                       |
+| Indiana                     | HB 1052, effective Jul 1, 2026                                |
+| Tennessee                   | SB 2136, signed May 2026                                      |
+| Louisiana                   | HB 53 (Act 48), treats sweepstakes gambling as racketeering   |
+| Oklahoma                    | Effective Nov 1, 2026                                         |
+| Washington                  | Existing law (RCW 9.46.240)                                   |
+| Michigan                    | Enforcement history against fish game apps                    |
+| Idaho, Montana, Connecticut | Commonly listed as restricting fish games                     |
 
 **Watch list:** Iowa (new enforcement powers since Jul 1, 2026), Maryland, Minnesota, Virginia, Illinois, District of Columbia.
 
@@ -154,13 +154,13 @@ Which mode each state gets, and whether fish games run in Mode P at all. Fish ga
 
 **Get Coins (purchase):**
 
-| Price | Gold Coins | Free SC bonus |
-|---|---|---|
-| $4.99 | 5,000 | 5 |
-| $9.99 | 10,000 | 10 |
-| $19.99 | 20,000 | 20 |
-| $49.99 | 50,000 | 50 |
-| $99.99 | 100,000 | 100 |
+| Price  | Gold Coins | Free SC bonus |
+| ------ | ---------- | ------------- |
+| $4.99  | 5,000      | 5             |
+| $9.99  | 10,000     | 10            |
+| $19.99 | 20,000     | 20            |
+| $49.99 | 50,000     | 50            |
+| $99.99 | 100,000    | 100           |
 
 Example values only. Counsel sets the SC bonus ratio; a 1:1 dollar-to-SC bonus is exactly what some legislators point to when calling these sites gambling.
 
@@ -228,24 +228,24 @@ Example values only. Counsel sets the SC bonus ratio; a 1:1 dollar-to-SC bonus i
 
 ### 6.2 Rooms
 
-| Tier | Bet per shot (SC or GC equivalent) | Bet steps |
-|---|---|---|
-| Beginner | 0.01 to 0.10 | 0.01, 0.02, 0.05, 0.10 |
-| Intermediate | 0.10 to 1.00 | 0.10, 0.20, 0.50, 1.00 |
-| Expert | 1.00 to 10.00 | 1, 2, 5, 10 |
+| Tier         | Bet per shot (SC or GC equivalent) | Bet steps              |
+| ------------ | ---------------------------------- | ---------------------- |
+| Beginner     | 0.01 to 0.10                       | 0.01, 0.02, 0.05, 0.10 |
+| Intermediate | 0.10 to 1.00                       | 0.10, 0.20, 0.50, 1.00 |
+| Expert       | 1.00 to 10.00                      | 1, 2, 5, 10            |
 
 Same math config across tiers. Higher tiers only change stake size. Gold Coin rooms use the same structure at 1,000x the numbers.
 
 ### 6.3 Fish catalog (template for table #1)
 
-| Group | Species | Multiplier | Behavior |
-|---|---|---|---|
-| Small | 8 | 2x to 9x | Swim in schools |
-| Medium | 8 | 10x to 30x | Pairs or solo |
-| Large | 6 | 35x to 100x | Slow, large hitbox |
-| Special | 5 | Feature (see below) | One or two on screen at a time |
-| Boss | 3 | 100x to 1000x, random on kill | One per wave, warning banner on entry |
-| Mascot boss | 1 | 300x to 1000x + bonus wheel | Scheduled event every 15 to 20 min |
+| Group       | Species | Multiplier                    | Behavior                              |
+| ----------- | ------- | ----------------------------- | ------------------------------------- |
+| Small       | 8       | 2x to 9x                      | Swim in schools                       |
+| Medium      | 8       | 10x to 30x                    | Pairs or solo                         |
+| Large       | 6       | 35x to 100x                   | Slow, large hitbox                    |
+| Special     | 5       | Feature (see below)           | One or two on screen at a time        |
+| Boss        | 3       | 100x to 1000x, random on kill | One per wave, warning banner on entry |
+| Mascot boss | 1       | 300x to 1000x + bonus wheel   | Scheduled event every 15 to 20 min    |
 
 The mascot boss is the platform's signature creature. Design an original one; do not use a kirin or anything resembling the reference brand.
 
@@ -323,12 +323,12 @@ P(kill) = 0.93 / 20 = 4.65%. Payout = 2.00 SC. Expected return = 0.0465 x 2.00 =
 **Random-multiplier bosses:** P(kill) = R / E[M]. On a kill, draw M from the boss distribution.
 
 | Boss multiplier | Probability |
-|---|---|
-| 100x | 40% |
-| 200x | 30% |
-| 300x | 20% |
-| 500x | 8% |
-| 1000x | 2% |
+| --------------- | ----------- |
+| 100x            | 40%         |
+| 200x            | 30%         |
+| 300x            | 20%         |
+| 500x            | 8%          |
+| 1000x           | 2%          |
 
 E[M] = 220. P(kill) = 0.93 / 220 = 0.4227% per bullet.
 
@@ -348,21 +348,21 @@ E[M] = 220. P(kill) = 0.93 / 220 = 0.4227% per bullet.
 - Seeds are funded from the marketing budget, not from RTP.
 - Lobby ticker shows each pool and its "must drop by" value.
 
-| Tier | Contribution (% of bet) | Seed (SC) | Cap (SC) |
-|---|---|---|---|
-| Mini | 0.6% | 10 | 50 |
-| Minor | 0.5% | 50 | 250 |
-| Major | 0.5% | 250 | 1,000 |
-| Grand | 0.4% | 1,000 | 5,000 |
-| Total | 2.0% | | |
+| Tier  | Contribution (% of bet) | Seed (SC) | Cap (SC) |
+| ----- | ----------------------- | --------- | -------- |
+| Mini  | 0.6%                    | 10        | 50       |
+| Minor | 0.5%                    | 50        | 250      |
+| Major | 0.5%                    | 250       | 1,000    |
+| Grand | 0.4%                    | 1,000     | 5,000    |
+| Total | 2.0%                    |           |          |
 
 ### 7.4 Certified configs
 
 | Config | Base R | Jackpot | Total RTP |
-|---|---|---|---|
-| A | 92% | 2% | 94% |
-| B | 93% | 2% | 95% |
-| C | 94% | 2% | 96% |
+| ------ | ------ | ------- | --------- |
+| A      | 92%    | 2%      | 94%       |
+| B      | 93%    | 2%      | 95%       |
+| C      | 94%    | 2%      | 96%       |
 
 Game Ops picks a config per room from this list. The config is locked for the life of a table session. Changes are logged and apply to new sessions only. Total RTP is shown in the game's info panel.
 
@@ -415,34 +415,34 @@ flowchart LR
 
 ### 8.2 Services
 
-| Service | Job |
-|---|---|
-| `api` | Auth, accounts, lobby, cashier, promotions, compliance, admin API, wallet/ledger module |
-| `game-server` | Fish rooms (stateful), slot and keno spin endpoints (stateless) |
-| `workers` | Payment and KYC webhooks, payouts, ledger checkpoints, jackpot settlement, email/SMS, reports |
-| `web` | Player shell: signup, lobby, cashier, KYC flow, rules, support |
-| `admin` | Back office |
-| `affiliate` | Affiliate portal (Phase 5) |
+| Service       | Job                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------- |
+| `api`         | Auth, accounts, lobby, cashier, promotions, compliance, admin API, wallet/ledger module       |
+| `game-server` | Fish rooms (stateful), slot and keno spin endpoints (stateless)                               |
+| `workers`     | Payment and KYC webhooks, payouts, ledger checkpoints, jackpot settlement, email/SMS, reports |
+| `web`         | Player shell: signup, lobby, cashier, KYC flow, rules, support                                |
+| `admin`       | Back office                                                                                   |
+| `affiliate`   | Affiliate portal (Phase 5)                                                                    |
 
 The wallet lives inside `api` at launch and splits into its own service once volume justifies it. Its module boundary is strict from day one (only the wallet module writes ledger tables).
 
 ### 8.3 Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Language | TypeScript everywhere | One language across client, server, math, simulator |
-| API | NestJS | Module boundaries, guards for RBAC, mature ecosystem |
-| Real-time | Colyseus | Rooms, matchmaking, reconnection, binary state sync out of the box |
-| DB | PostgreSQL 16 | Ledger needs real transactions |
-| ORM | Prisma for CRUD, raw SQL for ledger posting | Ledger posting needs row locks and tight control |
-| Cache / hot state | Redis (cluster) | Table session state, streams, rate limits, leaderboards |
-| Jobs | BullMQ | Retries, scheduling, on Redis already |
-| Game client | PixiJS v8 | See section 18 |
-| Shell / admin | Next.js + Tailwind | |
-| Analytics warehouse | ClickHouse | Round-level analytics at volume |
-| Hosting | AWS: ECS Fargate, RDS Multi-AZ, ElastiCache, CloudFront, WAF, Shield, Secrets Manager | Processors and auditors are used to it |
-| Infra as code | Terraform | |
-| Observability | OpenTelemetry, Grafana, Sentry | |
+| Layer               | Choice                                                                                | Why                                                                |
+| ------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Language            | TypeScript everywhere                                                                 | One language across client, server, math, simulator                |
+| API                 | NestJS                                                                                | Module boundaries, guards for RBAC, mature ecosystem               |
+| Real-time           | Colyseus                                                                              | Rooms, matchmaking, reconnection, binary state sync out of the box |
+| DB                  | PostgreSQL 16                                                                         | Ledger needs real transactions                                     |
+| ORM                 | Prisma for CRUD, raw SQL for ledger posting                                           | Ledger posting needs row locks and tight control                   |
+| Cache / hot state   | Redis (cluster)                                                                       | Table session state, streams, rate limits, leaderboards            |
+| Jobs                | BullMQ                                                                                | Retries, scheduling, on Redis already                              |
+| Game client         | PixiJS v8                                                                             | See section 18                                                     |
+| Shell / admin       | Next.js + Tailwind                                                                    |                                                                    |
+| Analytics warehouse | ClickHouse                                                                            | Round-level analytics at volume                                    |
+| Hosting             | AWS: ECS Fargate, RDS Multi-AZ, ElastiCache, CloudFront, WAF, Shield, Secrets Manager | Processors and auditors are used to it                             |
+| Infra as code       | Terraform                                                                             |                                                                    |
+| Observability       | OpenTelemetry, Grafana, Sentry                                                        |                                                                    |
 
 ---
 
@@ -456,30 +456,30 @@ WebSocket via Colyseus, binary encoding. Fish movement is not streamed. The serv
 
 **Client to server**
 
-| Message | Fields |
-|---|---|
-| `join` | roomId, currency, buyIn |
-| `fire` | bulletSeq, angle, betLevel, lockFishId?, clientTs |
-| `hit` | bulletSeq, fishId, clientTs |
-| `setBet` | betLevel |
-| `useWeapon` | weaponType, targetFishId?, angle |
-| `topUp` | amount |
-| `leave` | |
-| `ping` | clientTs |
+| Message     | Fields                                            |
+| ----------- | ------------------------------------------------- |
+| `join`      | roomId, currency, buyIn                           |
+| `fire`      | bulletSeq, angle, betLevel, lockFishId?, clientTs |
+| `hit`       | bulletSeq, fishId, clientTs                       |
+| `setBet`    | betLevel                                          |
+| `useWeapon` | weaponType, targetFishId?, angle                  |
+| `topUp`     | amount                                            |
+| `leave`     |                                                   |
+| `ping`      | clientTs                                          |
 
 **Server to client**
 
-| Message | Fields |
-|---|---|
-| `spawn` | fishId, typeId, pathId, spawnServerTs, speedScale |
-| `fired` | seat, bulletSeq, angle, betLevel (so others see your bullets) |
-| `result` | seat, bulletSeq, fishId, killed, payout, killedFishIds[], featureOutcome?, sessionBalance |
-| `despawn` | fishIds[], reason |
-| `tide` | sceneId, startsAtServerTs |
-| `jackpot` | tier, seat, amount |
-| `balance` | sessionBalance |
-| `pong` | clientTs, serverTs |
-| `error` | code, message |
+| Message   | Fields                                                                                    |
+| --------- | ----------------------------------------------------------------------------------------- |
+| `spawn`   | fishId, typeId, pathId, spawnServerTs, speedScale                                         |
+| `fired`   | seat, bulletSeq, angle, betLevel (so others see your bullets)                             |
+| `result`  | seat, bulletSeq, fishId, killed, payout, killedFishIds[], featureOutcome?, sessionBalance |
+| `despawn` | fishIds[], reason                                                                         |
+| `tide`    | sceneId, startsAtServerTs                                                                 |
+| `jackpot` | tier, seat, amount                                                                        |
+| `balance` | sessionBalance                                                                            |
+| `pong`    | clientTs, serverTs                                                                        |
+| `error`   | code, message                                                                             |
 
 ### 9.3 Clock sync
 
@@ -511,17 +511,17 @@ All money stored as `bigint` base units: 1 coin = 1,000,000 units. Fine enough f
 
 Every balance change is a journal with two or more entries that sum to zero. Every journal has a unique idempotency key.
 
-| Account | Purpose |
-|---|---|
-| `player:{id}:GC` | Gold Coin balance |
-| `player:{id}:SC_bonus` | SC not yet played through |
-| `player:{id}:SC_redeemable` | SC eligible for redemption |
-| `session:{id}:{currency}` | Table session escrow |
-| `house:GC_issued` | Source of purchased/promo GC |
-| `house:SC_promo` | Source of all SC (bonus, AMOE, promos) |
-| `house:game_result` | Net bets minus wins |
-| `jackpot:{tier}:{currency}` | Jackpot pools |
-| `redemption:pending` / `redemption:paid` | Payout pipeline |
+| Account                                  | Purpose                                |
+| ---------------------------------------- | -------------------------------------- |
+| `player:{id}:GC`                         | Gold Coin balance                      |
+| `player:{id}:SC_bonus`                   | SC not yet played through              |
+| `player:{id}:SC_redeemable`              | SC eligible for redemption             |
+| `session:{id}:{currency}`                | Table session escrow                   |
+| `house:GC_issued`                        | Source of purchased/promo GC           |
+| `house:SC_promo`                         | Source of all SC (bonus, AMOE, promos) |
+| `house:game_result`                      | Net bets minus wins                    |
+| `jackpot:{tier}:{currency}`              | Jackpot pools                          |
+| `redemption:pending` / `redemption:paid` | Payout pipeline                        |
 
 **1x playthrough without a separate counter:** SC arrives in `SC_bonus`. Bets draw from `SC_bonus` first, then `SC_redeemable`. All SC winnings land in `SC_redeemable`. Every SC has to be wagered once before anything it produces can be redeemed.
 
@@ -602,20 +602,20 @@ support_tickets(id, user_id, category, status, assignee_id, created_at)
 
 ## 12. API surface (REST, `/v1`)
 
-| Area | Endpoints |
-|---|---|
-| Auth | `POST /auth/signup`, `/auth/otp/verify`, `/auth/login`, `/auth/refresh`, `/auth/logout` |
-| Me | `GET /me`, `PATCH /me`, `GET /me/balances`, `GET /me/transactions`, `GET/PUT /me/limits`, `POST /me/exclusion` |
-| Geo | `POST /geo/check` (device payload from vendor SDK) |
-| KYC | `POST /kyc/session` (returns vendor SDK token), `POST /webhooks/kyc` |
-| Lobby | `GET /lobby`, `GET /games/:slug`, `GET /games/:slug/rooms` |
-| Launch | `POST /games/:slug/launch` returns `{wsUrl, gameToken}` (single use, 60 sec) |
-| Cashier | `GET /packages`, `POST /purchases`, `POST /webhooks/payments`, `POST /redemptions`, `GET /redemptions`, `POST /redemptions/:id/cancel` |
-| AMOE | `POST /amoe/online`, `GET /amoe/status` |
-| Promotions | `GET /promotions`, `POST /promotions/:id/claim`, `GET /missions`, `GET /leaderboards/:id` |
-| Support | `POST /tickets`, `GET /tickets` |
-| Wallet (internal/providers) | `POST /wallet/debit`, `/wallet/credit`, `/wallet/rollback` |
-| Admin | `/admin/*` (section 13) |
+| Area                        | Endpoints                                                                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth                        | `POST /auth/signup`, `/auth/otp/verify`, `/auth/login`, `/auth/refresh`, `/auth/logout`                                                |
+| Me                          | `GET /me`, `PATCH /me`, `GET /me/balances`, `GET /me/transactions`, `GET/PUT /me/limits`, `POST /me/exclusion`                         |
+| Geo                         | `POST /geo/check` (device payload from vendor SDK)                                                                                     |
+| KYC                         | `POST /kyc/session` (returns vendor SDK token), `POST /webhooks/kyc`                                                                   |
+| Lobby                       | `GET /lobby`, `GET /games/:slug`, `GET /games/:slug/rooms`                                                                             |
+| Launch                      | `POST /games/:slug/launch` returns `{wsUrl, gameToken}` (single use, 60 sec)                                                           |
+| Cashier                     | `GET /packages`, `POST /purchases`, `POST /webhooks/payments`, `POST /redemptions`, `GET /redemptions`, `POST /redemptions/:id/cancel` |
+| AMOE                        | `POST /amoe/online`, `GET /amoe/status`                                                                                                |
+| Promotions                  | `GET /promotions`, `POST /promotions/:id/claim`, `GET /missions`, `GET /leaderboards/:id`                                              |
+| Support                     | `POST /tickets`, `GET /tickets`                                                                                                        |
+| Wallet (internal/providers) | `POST /wallet/debit`, `/wallet/credit`, `/wallet/rollback`                                                                             |
+| Admin                       | `/admin/*` (section 13)                                                                                                                |
 
 All money-moving endpoints require an `Idempotency-Key` header.
 
@@ -625,16 +625,16 @@ All money-moving endpoints require an `Idempotency-Key` header.
 
 ### 13.1 Roles
 
-| Role | Can do |
-|---|---|
-| Super Admin | Everything, plus role management. Two people max |
-| Ops Manager | Players, promotions, CMS, reports |
-| Support Agent | View players (PII masked), tickets, round logs, small GC goodwill credits |
+| Role               | Can do                                                                          |
+| ------------------ | ------------------------------------------------------------------------------- |
+| Super Admin        | Everything, plus role management. Two people max                                |
+| Ops Manager        | Players, promotions, CMS, reports                                               |
+| Support Agent      | View players (PII masked), tickets, round logs, small GC goodwill credits       |
 | Compliance Officer | KYC queue, AML alerts, jurisdictions, exclusions, SC adjustments (with Finance) |
-| Finance | Redemption approvals, reconciliation, reports, SC adjustments (with Compliance) |
-| Game Ops | Rooms, math config selection, jackpots, wave scripts, maintenance mode |
-| Affiliate Manager | Affiliate accounts, deals, commission approval |
-| Analyst | Read-only reports |
+| Finance            | Redemption approvals, reconciliation, reports, SC adjustments (with Compliance) |
+| Game Ops           | Rooms, math config selection, jackpots, wave scripts, maintenance mode          |
+| Affiliate Manager  | Affiliate accounts, deals, commission approval                                  |
+| Analyst            | Read-only reports                                                               |
 
 ### 13.2 Modules
 
@@ -673,15 +673,15 @@ Off by default. Selling the platform to other operators puts Reef in the "suppor
 
 ## 15. Compliance stack
 
-| Control | When | Vendor candidates |
-|---|---|---|
-| Geolocation | Signup, login, purchase, SC play (recheck every 10 min), redemption | GeoComply, Radar, MaxMind + IPQS for VPN/proxy detection |
-| Age and identity | Light at signup, full (doc + liveness) before first redemption | Persona, Sumsub, Veriff, Jumio, Socure |
-| Sanctions / PEP | At KYC and on list updates | Bundled with KYC vendor |
-| AML monitoring | Continuous rules | In-house rules + fraud vendor |
-| Fraud / multi-account | Signup, purchase, redemption | SEON, Sardine, Fingerprint |
-| Bitcoin payments | Purchase and payout | Self-hosted BTCPay Server + isolated signer service (section 22) |
-| Chain risk screening | Every deposit and every payout address | Chainalysis, TRM Labs, Elliptic, plus the OFAC SDN address list |
+| Control               | When                                                                | Vendor candidates                                                |
+| --------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Geolocation           | Signup, login, purchase, SC play (recheck every 10 min), redemption | GeoComply, Radar, MaxMind + IPQS for VPN/proxy detection         |
+| Age and identity      | Light at signup, full (doc + liveness) before first redemption      | Persona, Sumsub, Veriff, Jumio, Socure                           |
+| Sanctions / PEP       | At KYC and on list updates                                          | Bundled with KYC vendor                                          |
+| AML monitoring        | Continuous rules                                                    | In-house rules + fraud vendor                                    |
+| Fraud / multi-account | Signup, purchase, redemption                                        | SEON, Sardine, Fingerprint                                       |
+| Bitcoin payments      | Purchase and payout                                                 | Self-hosted BTCPay Server + isolated signer service (section 22) |
+| Chain risk screening  | Every deposit and every payout address                              | Chainalysis, TRM Labs, Elliptic, plus the OFAC SDN address list  |
 
 **Geolocation:** IP alone is not enough. Use device location (browser or app permission) plus IP intelligence with VPN and proxy detection. Block SC play if location permission is denied in a Mode P state.
 
@@ -715,18 +715,18 @@ Off by default. Selling the platform to other operators puts Reef in the "suppor
 
 ## 17. Non-functional requirements
 
-| Requirement | Target |
-|---|---|
-| Fire to server ack | p95 < 80 ms within the continental US |
-| Hit to result | p95 < 120 ms |
-| Scale (v1) | 5,000 concurrent players, 1,500 fish rooms |
-| Availability | 99.9% monthly |
-| Degraded mode | If wallet is down: block new joins, let live sessions run on escrow, checkpoint when back |
-| Recovery | RPO 5 min, RTO 1 hour |
-| Client frame rate | 60 fps on mid-range Android (4 GB RAM class) |
-| Load size | Lobby < 5 MB, each game bundle < 15 MB, lazy-loaded assets |
-| Languages | English, Spanish |
-| Accessibility | WCAG AA for shell and cashier |
+| Requirement        | Target                                                                                    |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| Fire to server ack | p95 < 80 ms within the continental US                                                     |
+| Hit to result      | p95 < 120 ms                                                                              |
+| Scale (v1)         | 5,000 concurrent players, 1,500 fish rooms                                                |
+| Availability       | 99.9% monthly                                                                             |
+| Degraded mode      | If wallet is down: block new joins, let live sessions run on escrow, checkpoint when back |
+| Recovery           | RPO 5 min, RTO 1 hour                                                                     |
+| Client frame rate  | 60 fps on mid-range Android (4 GB RAM class)                                              |
+| Load size          | Lobby < 5 MB, each game bundle < 15 MB, lazy-loaded assets                                |
+| Languages          | English, Spanish                                                                          |
+| Accessibility      | WCAG AA for shell and cashier                                                             |
 
 ---
 
@@ -777,29 +777,29 @@ Tooling: pnpm workspaces + Turborepo, Vitest for unit tests, Playwright for shel
 
 Rough estimates for a team of 2 to 4 engineers plus 1 artist. A solo build runs 2 to 3 times longer.
 
-| Phase | Weeks | Scope | Exit gate |
-|---|---|---|---|
-| 0. Foundations | 0 to 4 | Counsel engaged, state matrix, official rules draft, KYC and chain-analytics vendor talks, fish math + simulator, art direction | Legal memo on modes and states |
-| 1. Core platform | 4 to 10 | Monorepo, auth, accounts, ledger + wallet, admin skeleton with RBAC and audit, geo check at signup | Ledger reconciliation tests pass |
-| 2. Fish engine | 8 to 16 | Path library, wave scripts, room server, session escrow, table #1 (22 species + 5 specials + boss), jackpots | Simulator shows strategy-independent RTP |
-| 3. Lobby and Mode S | 14 to 20 | Lobby, GC purchases, basic promotions, 6 slots, keno | Closed beta in Mode S states |
-| 4. Sweepstakes layer | 18 to 26 | Full KYC, AMOE, SC currency, redemption pipeline, AML rules, RG tools, lab submission | Lab certification + counsel sign-off |
-| 5. Scale and launch | 24 to 30 | Affiliate portal, tables #2 and #3, Android wrapper, load test at 5,000 CCU, pen test | Mode P launch in cleared states |
+| Phase                | Weeks    | Scope                                                                                                                           | Exit gate                                |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| 0. Foundations       | 0 to 4   | Counsel engaged, state matrix, official rules draft, KYC and chain-analytics vendor talks, fish math + simulator, art direction | Legal memo on modes and states           |
+| 1. Core platform     | 4 to 10  | Monorepo, auth, accounts, ledger + wallet, admin skeleton with RBAC and audit, geo check at signup                              | Ledger reconciliation tests pass         |
+| 2. Fish engine       | 8 to 16  | Path library, wave scripts, room server, session escrow, table #1 (22 species + 5 specials + boss), jackpots                    | Simulator shows strategy-independent RTP |
+| 3. Lobby and Mode S  | 14 to 20 | Lobby, GC purchases, basic promotions, 6 slots, keno                                                                            | Closed beta in Mode S states             |
+| 4. Sweepstakes layer | 18 to 26 | Full KYC, AMOE, SC currency, redemption pipeline, AML rules, RG tools, lab submission                                           | Lab certification + counsel sign-off     |
+| 5. Scale and launch  | 24 to 30 | Affiliate portal, tables #2 and #3, Android wrapper, load test at 5,000 CCU, pen test                                           | Mode P launch in cleared states          |
 
 ---
 
 ## 21. Open decisions
 
-| # | Decision | Owner | Blocks |
-|---|---|---|---|
-| 1 | Launch mode per state, and whether fish games run in Mode P at all | Counsel | Phase 4 |
-| 2 | Build vs. license games beyond table #1 | Product | Phase 5 content plan |
-| 3 | Bitcoin payouts: money transmission analysis, treasury conversion policy, signer limits, who holds cold keys | Founder + counsel | Build playbook Phase B |
-| 4 | Entity structure and home state | Counsel | Phase 0 |
-| 5 | Affiliate program at launch or later; white-label ever | Founder + counsel | Phase 5 |
-| 6 | 4 vs. 6 seats per table; free-text chat | Product | Phase 2 |
-| 7 | Final brand and mascot boss design | Founder + artist | Phase 2 art |
-| 8 | SC bonus ratio on packages, AMOE amount, minimum redemption | Counsel | Phase 4 |
+| #   | Decision                                                                                                     | Owner             | Blocks                 |
+| --- | ------------------------------------------------------------------------------------------------------------ | ----------------- | ---------------------- |
+| 1   | Launch mode per state, and whether fish games run in Mode P at all                                           | Counsel           | Phase 4                |
+| 2   | Build vs. license games beyond table #1                                                                      | Product           | Phase 5 content plan   |
+| 3   | Bitcoin payouts: money transmission analysis, treasury conversion policy, signer limits, who holds cold keys | Founder + counsel | Build playbook Phase B |
+| 4   | Entity structure and home state                                                                              | Counsel           | Phase 0                |
+| 5   | Affiliate program at launch or later; white-label ever                                                       | Founder + counsel | Phase 5                |
+| 6   | 4 vs. 6 seats per table; free-text chat                                                                      | Product           | Phase 2                |
+| 7   | Final brand and mascot boss design                                                                           | Founder + artist  | Phase 2 art            |
+| 8   | SC bonus ratio on packages, AMOE amount, minimum redemption                                                  | Counsel           | Phase 4                |
 
 ---
 
@@ -809,14 +809,14 @@ Bitcoin is the only money rail. Cards, ACH, and third-party payment processors a
 
 ### 22.1 Rails
 
-| Flow | How |
-|---|---|
-| Purchase (deposit) | Self-hosted BTCPay Server creates a USD-priced invoice and a fresh address per invoice |
-| Deposit custody | BTCPay is watch-only. Deposits land in a 2-of-3 multisig cold wallet. No deposit key exists on any server |
-| Redemption (payout) | Isolated signer service pays from a small hot wallet whose key lives in AWS KMS and never leaves it |
-| Hot wallet refill | Humans sign a transfer from cold to hot on hardware wallets |
-| Price | Integer cents per BTC from 2+ exchange feeds, median, fail closed when stale or divergent |
-| Lightning | Out of scope for v1 |
+| Flow                | How                                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| Purchase (deposit)  | Self-hosted BTCPay Server creates a USD-priced invoice and a fresh address per invoice                    |
+| Deposit custody     | BTCPay is watch-only. Deposits land in a 2-of-3 multisig cold wallet. No deposit key exists on any server |
+| Redemption (payout) | Isolated signer service pays from a small hot wallet whose key lives in AWS KMS and never leaves it       |
+| Hot wallet refill   | Humans sign a transfer from cold to hot on hardware wallets                                               |
+| Price               | Integer cents per BTC from 2+ exchange feeds, median, fail closed when stale or divergent                 |
+| Lightning           | Out of scope for v1                                                                                       |
 
 ### 22.2 Deposits
 
@@ -840,10 +840,10 @@ Bitcoin is the only money rail. Cards, ACH, and third-party payment processors a
 
 ### 22.4 Custody
 
-| Wallet | Type | Keys | Purpose |
-|---|---|---|---|
+| Wallet        | Type                  | Keys                                       | Purpose                               |
+| ------------- | --------------------- | ------------------------------------------ | ------------------------------------- |
 | Cold treasury | 2-of-3 multisig P2WSH | 3 hardware wallets, 2 vendors, 3 locations | Receives all deposits, holds reserves |
-| Hot payout | Single-sig P2WPKH | AWS KMS secp256k1 key, non-exportable | Pays redemptions, float capped |
+| Hot payout    | Single-sig P2WPKH     | AWS KMS secp256k1 key, non-exportable      | Pays redemptions, float capped        |
 
 Trade-off: a KMS key is a single keypair, so the hot wallet reuses one address. That hurts on-chain privacy but not security. A custody provider with MPC wallets is the alternative if that matters later.
 
@@ -864,13 +864,13 @@ system_flags(key, value, updated_by, updated_at)   -- e.g. payouts_paused
 
 ### 22.6 Extra endpoints
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /v1/purchases` | Now returns the invoice: address, BIP21 URI, BTC amount, expiry |
-| `GET /v1/purchases/:id/events` | Server-sent events for live invoice status |
-| `POST /v1/webhooks/btcpay` | Signed BTCPay webhooks |
-| `GET/POST/DELETE /v1/payout-addresses` | Address book |
-| `POST /v1/payout-addresses/:id/confirm` | Email confirmation link target |
+| Endpoint                                | Purpose                                                         |
+| --------------------------------------- | --------------------------------------------------------------- |
+| `POST /v1/purchases`                    | Now returns the invoice: address, BIP21 URI, BTC amount, expiry |
+| `GET /v1/purchases/:id/events`          | Server-sent events for live invoice status                      |
+| `POST /v1/webhooks/btcpay`              | Signed BTCPay webhooks                                          |
+| `GET/POST/DELETE /v1/payout-addresses`  | Address book                                                    |
+| `POST /v1/payout-addresses/:id/confirm` | Email confirmation link target                                  |
 
 ### 22.7 Legal and tax notes for counsel
 
