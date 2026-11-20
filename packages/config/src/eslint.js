@@ -1,0 +1,94 @@
+// @ts-check
+import js from '@eslint/js';
+import { defineConfig } from 'eslint/config';
+import security from 'eslint-plugin-security';
+import tseslint from 'typescript-eslint';
+
+const JS_FILES = ['**/*.{js,jsx,mjs,cjs}'];
+const TEST_FILES = ['**/*.test.{ts,tsx}', '**/test/**/*.{ts,tsx}'];
+
+/**
+ * Packages allowed to call `Math.random`. CLAUDE.md: randomness comes from
+ * `node:crypto` everywhere except the simulator, which needs fast, seedable draws.
+ */
+const MATH_RANDOM_EXEMPT_FILES = ['packages/simulator/**'];
+
+/** Folders where `console` output is the intended interface (CLAUDE.md: console banned elsewhere). */
+const CONSOLE_ALLOWED_FILES = ['**/scripts/**'];
+
+const MATH_RANDOM_RESTRICTION = {
+  object: 'Math',
+  property: 'random',
+  message:
+    'Math.random is not cryptographically secure. Use randomInt or randomBytes from node:crypto.',
+};
+
+/**
+ * Options for {@link createReefConfig}.
+ *
+ * @typedef {object} ReefConfigOptions
+ * @property {string} rootDir Absolute path of the repository root. Used as the TypeScript
+ *   project service root and as the base for every file glob in the config.
+ */
+
+/**
+ * Builds the shared ESLint flat config for the Reef monorepo.
+ *
+ * Applies `typescript-eslint` strict-type-checked and `eslint-plugin-security` recommended
+ * rules, bans `Math.random` outside the simulator, and bans `console` outside `scripts/`.
+ * Type-aware rules are disabled for plain JavaScript files, which are config files only.
+ *
+ * @param {ReefConfigOptions} options Repository settings.
+ * @returns {import('eslint').Linter.Config[]} The flat config array to export from `eslint.config.js`.
+ */
+export function createReefConfig({ rootDir }) {
+  return defineConfig(
+    {
+      ignores: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/out/**',
+        '**/.next/**',
+        '**/.turbo/**',
+        '**/coverage/**',
+        '.keys/**',
+      ],
+    },
+    js.configs.recommended,
+    tseslint.configs.strictTypeChecked,
+    security.configs.recommended,
+    {
+      languageOptions: {
+        parserOptions: {
+          projectService: true,
+          tsconfigRootDir: rootDir,
+        },
+      },
+      linterOptions: {
+        reportUnusedDisableDirectives: 'error',
+      },
+      rules: {
+        'no-restricted-properties': ['error', MATH_RANDOM_RESTRICTION],
+        'no-console': 'error',
+      },
+    },
+    {
+      files: JS_FILES,
+      extends: [tseslint.configs.disableTypeChecked],
+    },
+    {
+      files: MATH_RANDOM_EXEMPT_FILES,
+      rules: { 'no-restricted-properties': 'off' },
+    },
+    {
+      files: CONSOLE_ALLOWED_FILES,
+      rules: { 'no-console': 'off' },
+    },
+    {
+      // CLAUDE.md: non-null assertions are allowed in tests only.
+      files: TEST_FILES,
+      rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+    },
+  );
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "rangeStrategy": "pin",
+  "automerge": false,
+  "minimumReleaseAge": "7 days",
+  "schedule": ["before 6am on monday"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": false,
+    "schedule": ["before 6am on monday"]
+  },
+  "packageRules": [
+    {
+      "description": "Group minor and patch updates into one weekly PR.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "weekly minor updates",
+      "automerge": false
+    },
+    {
+      "description": "Majors get their own PR and need approval from the dependency dashboard.",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "description": "typescript-eslint supports TypeScript < 6.1 only. Lift this when it supports newer.",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<6.1.0"
+    },
+    {
+      "description": "Node 22 LTS is the locked runtime (playbook §1). Majors are a deliberate decision.",
+      "matchPackageNames": ["node", "@types/node"],
+      "allowedVersions": "<23"
+    }
+  ]
+}

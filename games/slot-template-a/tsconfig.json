@@ -1,0 +1,4 @@
+{
+  "extends": "@reef/config/tsconfig/browser.json",
+  "include": ["src/**/*"]
+}

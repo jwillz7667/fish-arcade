@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - games/*
+  - packages/*
+
+engineStrict: true
+savePrefix: ''
+# Supply-chain guard: never resolve a version published less than 7 days ago (minutes).
+minimumReleaseAge: 10080
