@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import type { AuditWriter } from '../../audit/audit-writer.js';
 import { withTransaction } from '../../db/transaction.js';
 import type { Clock } from '../../shared/clock.js';
+import { permissionsFor } from '../admin-permissions.js';
 import type { AdminPrincipal } from '../auth/admin-session-service.js';
 import type { ApprovalAction } from './approval-actions.js';
 
@@ -17,7 +18,8 @@ export interface ApprovalView {
   readonly payload: unknown;
   readonly status: 'pending' | 'approved' | 'rejected' | 'expired' | 'executed';
   readonly requestedBy: string;
-  readonly approvedBy: string | null;
+  /** Who approved or rejected it. Null while pending or once expired. */
+  readonly decidedBy: string | null;
   readonly createdAt: Date;
   readonly expiresAt: Date;
   readonly decidedAt: Date | null;
@@ -41,7 +43,8 @@ const toView = (row: ApprovalRow): ApprovalView => ({
   payload: row.payload,
   status: row.status,
   requestedBy: row.requested_by,
-  approvedBy: row.approved_by,
+  // approved_by holds whoever decided: the approver, or the admin who rejected or withdrew it.
+  decidedBy: row.approved_by,
   createdAt: row.created_at,
   expiresAt: row.expires_at,
   decidedAt: row.decided_at,
@@ -120,7 +123,8 @@ export class ApprovalsService {
    * @returns The executed approval.
    * @throws NotFoundError for an unknown approval.
    * @throws ForbiddenError when the approver is the requester or lacks the approve permission.
-   * @throws ConflictError when the approval is no longer pending or has expired.
+   * @throws ConflictError when the approval is no longer pending, has expired, or the requester
+   *   no longer holds the request permission.
    */
   async approve(
     admin: AdminPrincipal,
@@ -141,7 +145,27 @@ export class ApprovalsService {
           `UPDATE approvals SET status = 'expired', decided_at = $2 WHERE id = $1`,
           [row.id, now],
         );
+        await this.deps.audit.record(
+          {
+            actorType: 'admin',
+            actorId: admin.adminId,
+            action: 'admin.approval.expired',
+            targetType: 'approval',
+            targetId: row.id,
+            details: { action: action.name, requestedBy: row.requested_by },
+            ip: input.ip,
+          },
+          client,
+        );
         return { kind: 'expired' };
+      }
+      // A requester who has since lost the role (or been disabled) no longer vouches for it.
+      if (
+        !(await this.#requesterPermissions(client, row.requested_by)).has(action.requestPermission)
+      ) {
+        throw new ConflictError({
+          message: 'The requester no longer holds the request permission',
+        });
       }
       const payload = action.payloadSchema.parse(row.payload);
       const result = await action.execute(payload, {
@@ -242,6 +266,20 @@ export class ApprovalsService {
       [input.status ?? null, input.before ?? null, input.limit],
     );
     return rows.map(toView);
+  }
+
+  async #requesterPermissions(
+    client: Pick<Pool, 'query'>,
+    requesterId: string,
+  ): Promise<ReadonlySet<string>> {
+    const { rows } = await client.query<{ name: string }>(
+      `SELECT r.name FROM admin_users a
+         JOIN admin_user_roles ar ON ar.admin_user_id = a.id
+         JOIN roles r ON r.id = ar.role_id
+        WHERE a.id = $1 AND a.status = 'active'`,
+      [requesterId],
+    );
+    return permissionsFor(rows.map((row) => row.name));
   }
 
   async #lock(client: Pick<Pool, 'query'>, approvalId: string): Promise<ApprovalRow> {

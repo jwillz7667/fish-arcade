@@ -142,7 +142,7 @@ describe('audit of admin writes', () => {
     expect(row).toEqual({
       action: 'admin.TestAdminController.fail.failed',
       before: null,
-      after: { error: 'CONFLICT' },
+      after: { error: 'CONFLICT', params: {} },
     });
   });
 });
@@ -209,7 +209,7 @@ describe('four-eyes approvals', () => {
       `/v1/admin/approvals/${approvalId}/approve`,
     );
 
-    expect(approved.json()).toMatchObject({ status: 'executed', approvedBy: approver.adminId });
+    expect(approved.json()).toMatchObject({ status: 'executed', decidedBy: approver.adminId });
     expect(await releasedAt(holdId)).not.toBeNull();
   });
 
@@ -225,6 +225,28 @@ describe('four-eyes approvals', () => {
     );
 
     expect(response.statusCode).toBe(403);
+    expect(await releasedAt(holdId)).toBeNull();
+    expect((await auditRows(requester.adminId)).map((row) => row.action)).toContain(
+      'admin.ApprovalsController.approve.failed',
+    );
+  });
+
+  it('refuses to execute once the requester has lost the request permission', async () => {
+    const [requester, approver] = [
+      await signedIn(['compliance_officer']),
+      await signedIn(['compliance_officer']),
+    ];
+    const { approvalId, holdId } = await requestRelease(requester);
+    await db.query('DELETE FROM admin_user_roles WHERE admin_user_id = $1', [requester.adminId]);
+
+    const response = await adminCall(
+      t,
+      approver,
+      'POST',
+      `/v1/admin/approvals/${approvalId}/approve`,
+    );
+
+    expect(response.statusCode).toBe(409);
     expect(await releasedAt(holdId)).toBeNull();
   });
 
@@ -261,6 +283,9 @@ describe('four-eyes approvals', () => {
       [approvalId],
     );
     expect(rows[0]?.status).toBe('expired');
+    expect((await auditRows(approver.adminId)).map((row) => row.action)).toContain(
+      'admin.approval.expired',
+    );
   });
 
   it('executes once when two approvers race', async () => {
