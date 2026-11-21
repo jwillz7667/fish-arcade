@@ -102,6 +102,18 @@ The client checks location for an action, then sends the result with the gated r
 
 **Dev data.** `pnpm db:seed` (refused in production) adds one row per state: spec §4.3's likely-blocked states as X and the rest as S. No state is P until counsel and Compliance set production rows.
 
+## KYC (`src/compliance/kyc`, Step 8, spec §5.1, §15)
+
+- **Sessions.** `POST /v1/kyc/session` with `{ level: 'light' | 'full' }` starts a vendor check and returns the token for the vendor's SDK. Documents and selfies go straight to the vendor; Reef stores only the vendor reference and the outcome (`kyc_checks`).
+- **Webhooks.** `POST /v1/webhooks/kyc` is public and authenticated by signature:
+  1. Verify the HMAC over the exact raw body with `timingSafeEqual`, and reject timestamps more than 5 minutes off (401).
+  2. Re-fetch the verdict from the vendor; the body only names which check changed. If the vendor can't confirm, answer 503 so it retries.
+  3. In one transaction, record the event ID in `processed_webhooks` (replays and retries answer `duplicate`), then lock the check and apply the change.
+- **Transitions.** `pending` → `passed`, `failed`, `review`, or `sanctions_hit`; `review` → `passed`, `failed`, or `sanctions_hit`; `passed` → `sanctions_hit` (list updates). `failed` and `sanctions_hit` are final until an admin acts (Step 9). Anything else is rejected and audited.
+- **Sanctions or PEP hit.** Opens a critical `aml_alerts` row (`kyc_sanctions_pep`) and places a redemption hold (`account_holds`), in the same transaction.
+- **Guards.** `@RequireKyc('light' | 'full')` needs a passed check at that level (full satisfies light) and no sanctions hit. `@RequireRedemptionEligibility()`, for the redemption and payout routes of Steps 14 and 15, needs full KYC and no redemption hold (`REDEMPTION_SUSPENDED`).
+- **Provider.** `KYC_PROVIDER=dev_stub` is the only option, and config rejects it in production. The stub keeps scripted outcomes (`passed`, `failed`, `review`, `sanctions_hit`) in Redis and signs webhooks with `KYC_WEBHOOK_SECRET` (`X-Reef-Kyc-Signature: t=…,v1=…`).
+
 ## Test
 
 ```sh

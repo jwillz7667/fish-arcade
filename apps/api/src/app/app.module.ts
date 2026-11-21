@@ -16,6 +16,7 @@ import {
   COMPLIANCE_CONTROLLERS,
   createComplianceServices,
   type GeoProvider,
+  type KycProvider,
 } from '../compliance/index.js';
 import { HealthController } from '../health/health.controller.js';
 import { DomainExceptionFilter } from '../http/domain-exception.filter.js';
@@ -36,6 +37,8 @@ export interface AppDependencies {
   readonly auth: AuthDependencies;
   /** Where devices are, for the jurisdiction gate. */
   readonly geoProvider: GeoProvider;
+  /** Identity verification vendor. */
+  readonly kycProvider: KycProvider;
   /** Extra controllers, for feature modules added in later steps and for tests. */
   readonly controllers?: readonly Type[];
 }
