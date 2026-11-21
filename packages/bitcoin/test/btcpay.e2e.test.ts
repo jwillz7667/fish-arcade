@@ -124,8 +124,9 @@ describe('BTCPay on regtest (playbook Step 10)', () => {
     );
     expect(destination.type).toBe('wsh');
     expect(ours).toContain(destination.address);
-    // $25 at the fixed regtest rate of $50,000 per BTC.
+    // $25 at the fixed regtest rate of $50,000 per BTC, the same rate the dev oracle reports.
     expect(payment.amount).toBe(50_000n);
+    expect(payment.rate).toBe(5_000_000n);
 
     await rpc.call(
       z.string(),
