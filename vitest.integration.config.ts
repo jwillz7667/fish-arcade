@@ -11,8 +11,8 @@ export default defineConfig({
       provider: 'v8',
       // Only workspaces with integration suites; other packages are measured by unit tests.
       // Globs match absolute paths, hence the leading **.
-      include: ['**/packages/db/src/**/*.ts'],
-      exclude: ['**/*.test.{ts,tsx}', '**/index.ts', '**/generated/**'],
+      include: ['**/packages/db/src/**/*.ts', '**/apps/api/src/wallet/**/*.ts'],
+      exclude: ['**/*.test.{ts,tsx}', '**/index.ts', '**/generated/**', '**/testing/**'],
       reporter: ['text-summary', 'html', 'json-summary'],
       reportsDirectory: 'coverage/integration',
       thresholds: { branches: 80, functions: 80, lines: 80, statements: 80 },

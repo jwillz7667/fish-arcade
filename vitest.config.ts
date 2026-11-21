@@ -17,6 +17,7 @@ export default defineConfig({
         'packages/config/src/vitest.ts',
         // Needs a real database; covered by `pnpm test:integration` instead.
         'packages/db/src/**',
+        'apps/api/src/wallet/**',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],
       thresholds: {

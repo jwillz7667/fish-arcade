@@ -69,4 +69,54 @@ describe('createReefConfig', () => {
 
     expect(ruleIds).toEqual([]);
   });
+
+  it.each([
+    ['raw SQL naming a ledger table', "export const q = 'UPDATE balances SET amount = 0';\n"],
+    [
+      'a template literal naming a ledger table',
+      'export const q = `SELECT * FROM ledger_entries`;\n',
+    ],
+    [
+      'a Prisma ledger delegate',
+      'declare const prisma: { ledgerEntry: unknown };\nexport const d = prisma.ledgerEntry;\n',
+    ],
+    ['the ledger enums from @reef/db', "export { LedgerOwnerType } from '@reef/db';\n"],
+  ])('rejects %s outside the wallet module', async (_label, code) => {
+    const ruleIds = await ruleIdsFor(code, 'apps/api/src/cashier/service.ts');
+
+    expect(
+      ruleIds.some((id) => id === 'no-restricted-syntax' || id === 'no-restricted-imports'),
+    ).toBe(true);
+  });
+
+  it('allows ledger SQL inside the wallet module and packages/db', async () => {
+    const code = "export const q = 'UPDATE balances SET amount = 0';\n";
+
+    expect([
+      await ruleIdsFor(code, 'apps/api/src/wallet/post-journal.ts'),
+      await ruleIdsFor(code, 'packages/db/src/x.ts'),
+    ]).toEqual([[], []]);
+  });
+
+  it('does not flag prose that merely mentions balances', async () => {
+    const ruleIds = await ruleIdsFor(
+      "export const m = 'SC balances cannot cover the bet';\n",
+      'packages/ledger/src/x.ts',
+    );
+
+    expect(ruleIds).toEqual([]);
+  });
+
+  it('rejects deep imports into the wallet and allows its barrel', async () => {
+    const deep = await ruleIdsFor(
+      "export { postJournal } from '../wallet/post-journal.js';\n",
+      'apps/api/src/cashier/x.ts',
+    );
+    const barrel = await ruleIdsFor(
+      "export { postJournal } from '../wallet/index.js';\n",
+      'apps/api/src/cashier/x.ts',
+    );
+
+    expect([deep, barrel]).toEqual([['no-restricted-imports'], []]);
+  });
 });

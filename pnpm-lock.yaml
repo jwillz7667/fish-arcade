@@ -61,10 +61,41 @@ importers:
         version: link:../../packages/config
 
   apps/api:
+    dependencies:
+      '@reef/errors':
+        specifier: workspace:*
+        version: link:../../packages/errors
+      '@reef/ledger':
+        specifier: workspace:*
+        version: link:../../packages/ledger
+      '@reef/money':
+        specifier: workspace:*
+        version: link:../../packages/money
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
     devDependencies:
       '@reef/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@reef/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   apps/game-server:
     devDependencies:
@@ -226,10 +257,29 @@ importers:
         version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/ledger:
+    dependencies:
+      '@reef/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@reef/money':
+        specifier: workspace:*
+        version: link:../money
     devDependencies:
       '@reef/config':
         specifier: workspace:*
         version: link:../config
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/logger:
     dependencies:
