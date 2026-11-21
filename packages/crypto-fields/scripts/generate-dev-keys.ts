@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -17,14 +16,16 @@ const files = ['field-master.key', 'blind-index.key'];
 await mkdir(keyDir, { recursive: true, mode: 0o700 });
 for (const name of files) {
   const path = `${keyDir}${name}`;
-  // Never overwrite: existing ciphertexts and indexes depend on these keys.
-  if (existsSync(path)) {
+  try {
+    // 'wx' fails atomically if the file exists. Never overwrite: existing ciphertexts and
+    // indexes depend on these keys.
+    await writeFile(path, `${randomBytes(KEY_BYTES).toString('base64')}\n`, {
+      mode: 0o600,
+      flag: 'wx',
+    });
+    console.log(`Wrote .keys/dev/${name}`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
     console.log(`Kept existing .keys/dev/${name}`);
-    continue;
   }
-  await writeFile(path, `${randomBytes(KEY_BYTES).toString('base64')}\n`, {
-    mode: 0o600,
-    flag: 'wx',
-  });
-  console.log(`Wrote .keys/dev/${name}`);
 }
