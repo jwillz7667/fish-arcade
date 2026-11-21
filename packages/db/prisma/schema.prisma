@@ -1255,9 +1255,9 @@ model PriceSnapshot {
   id          BigInt   @id @default(autoincrement())
   centsPerBtc BigInt   @map("cents_per_btc")
   sources     Json
-  takenAt     DateTime @map("taken_at") @db.Timestamptz(3)
+  // The minute the price belongs to (playbook Step 11: one snapshot per minute).
+  takenAt     DateTime @unique @map("taken_at") @db.Timestamptz(3)
 
-  @@index([takenAt])
   @@map("price_snapshots")
 }
 
