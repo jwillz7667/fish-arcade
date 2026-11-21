@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "keys:dev": "tsx scripts/generate-dev-keys.ts"
+    "keys:dev": "tsx --conditions=@reef/source scripts/generate-dev-keys.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "3.1164.0",
