@@ -23,9 +23,103 @@ export const DEFAULT_SYSTEM_FLAGS: Readonly<Record<string, boolean>> = {
   purchases_paused: true,
 };
 
+/** Every state code the jurisdiction table covers: the 50 states plus DC. */
+export const US_STATE_CODES = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'DC',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+] as const;
+
+/** Spec §4.3 "likely Mode X" states. A starting point for counsel, not a legal position. */
+export const SPEC_BLOCKED_STATES: readonly string[] = [
+  'CA',
+  'NY',
+  'NJ',
+  'ME',
+  'IN',
+  'TN',
+  'LA',
+  'OK',
+  'WA',
+  'MI',
+  'ID',
+  'MT',
+  'CT',
+];
+
+/** Fixed so the seed stays idempotent: rows are keyed by (state_code, effective_from). */
+const DEV_EFFECTIVE_FROM = new Date('2026-01-01T00:00:00Z');
+const DEV_MEMO = 'DEV-ONLY seed from spec §4.3. Not legal advice; counsel sets production rows.';
+
 /**
- * Seeds reference data for local development: admin roles and system flags. Idempotent:
- * existing rows are left as they are.
+ * Dev-only jurisdiction rows: spec §4.3 states blocked (X), every other state Gold Coins only
+ * (S). No state gets sweepstakes (P); production rows come from Compliance after counsel signs
+ * off, and a state with no row is blocked.
+ */
+export const DEV_JURISDICTIONS = US_STATE_CODES.map((stateCode) => {
+  const isBlocked = SPEC_BLOCKED_STATES.includes(stateCode);
+  return {
+    stateCode,
+    effectiveFrom: DEV_EFFECTIVE_FROM,
+    mode: isBlocked ? ('X' as const) : ('S' as const),
+    minAge: 18,
+    scRedemptionEnabled: false,
+    fishGamesEnabled: !isBlocked,
+    legalMemoRef: DEV_MEMO,
+  };
+});
+
+/**
+ * Seeds reference data for local development: admin roles, system flags, and dev jurisdiction
+ * rows. Idempotent: existing rows are left as they are.
  *
  * @param prisma A client connected as reef_app.
  * @param nodeEnv Current NODE_ENV.
@@ -48,5 +142,6 @@ export async function seedReferenceData(prisma: PrismaClient, nodeEnv: string): 
       })),
       skipDuplicates: true,
     }),
+    prisma.jurisdiction.createMany({ data: DEV_JURISDICTIONS, skipDuplicates: true }),
   ]);
 }
