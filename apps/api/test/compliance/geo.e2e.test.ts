@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { setTimeout as delay } from 'node:timers/promises';
 
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
@@ -243,11 +242,15 @@ describe('jurisdiction changes', () => {
     // Redis outlives the per-run database; start without a cached rule from an earlier run.
     await jurisdictions.invalidate(state);
     const ip = nextIp();
-    const player = (await signUp(t)).bearer;
-    const geo = await geoHeader(t, 'play_sc', { ip, place: state, headers: player });
-    const before = await post(t, ROUTE.play_sc, {}, { ip, headers: { ...player, ...geo } });
+    const playSc = async () => {
+      const player = (await signUp(t)).bearer;
+      const geo = await geoHeader(t, 'play_sc', { ip, place: state, headers: player });
+      const headers = { ...player, ...geo };
+      return { headers, response: await post(t, ROUTE.play_sc, {}, { ip, headers }) };
+    };
+    const before = (await playSc()).response;
 
-    const effectiveFrom = new Date(t.auth.clock.now().getTime() + 1_000);
+    const effectiveFrom = new Date(t.auth.clock.now().getTime() + 3_600_000);
     await jurisdictions.schedule(
       {
         stateCode: state,
@@ -260,11 +263,13 @@ describe('jurisdiction changes', () => {
       },
       { adminId: randomUUID(), ip: null },
     );
-    const stillBefore = await post(t, ROUTE.play_sc, {}, { ip, headers: { ...player, ...geo } });
-    // That read cached the old rule only until the change is due (1 s), not the usual 60 s.
-    t.auth.clock.advance(1_500);
-    await delay(1_100);
-    const after = await post(t, ROUTE.play_sc, {}, { ip, headers: { ...player, ...geo } });
+    // Five minutes before the change: a fresh session and geo token, which caches the old rule.
+    t.auth.clock.advance(55 * 60_000);
+    const late = await playSc();
+    const stillBefore = late.response;
+    // Past the change, the same still-valid tokens are refused; the cached entry no longer counts.
+    t.auth.clock.advance(6 * 60_000);
+    const after = await post(t, ROUTE.play_sc, {}, { ip, headers: late.headers });
 
     expect([before.statusCode, stillBefore.statusCode]).toEqual([201, 201]);
     expect([after.statusCode, errorCode(after)]).toEqual([403, 'COMPLIANCE_BLOCKED']);
@@ -275,14 +280,17 @@ describe('jurisdiction changes', () => {
     expect(audit.rowCount).toBe(1);
   });
 
-  it('cannot be scheduled in the past', async () => {
+  it.each([
+    ['in the past', -1],
+    ['less than an hour ahead', 30 * 60_000],
+  ])('cannot be scheduled %s', async (_label, offsetMs) => {
     const jurisdictions = t.app.get(JurisdictionService);
 
     await expect(
       jurisdictions.schedule(
         {
           stateCode: 'KS',
-          effectiveFrom: new Date(t.auth.clock.now().getTime() - 1),
+          effectiveFrom: new Date(t.auth.clock.now().getTime() + offsetMs),
           mode: 'P',
           minAge: 18,
           scRedemptionEnabled: true,

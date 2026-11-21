@@ -32,7 +32,7 @@ export class AdminJurisdictionsController {
     return this.jurisdictions.listCurrent();
   }
 
-  /** Schedules a change. It takes effect at `effectiveFrom`, which must be in the future. */
+  /** Schedules a change. It takes effect at `effectiveFrom`, at least an hour from now. */
   @Post()
   @HttpCode(201)
   @RequirePermission('jurisdictions.write')

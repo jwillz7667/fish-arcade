@@ -12,7 +12,14 @@ import { jurisdictionRepository, type NewJurisdictionRule } from './jurisdiction
 /** Playbook Step 7: rules are cached for 60 seconds. */
 export const JURISDICTION_CACHE_TTL_MS = 60_000;
 
-const cacheKey = (stateCode: string): string => `jurisdiction:v1:${stateCode}`;
+/**
+ * Spec §4.1: a change takes effect at a scheduled time, never mid-session. An hour's notice
+ * lets sessions on the old rule wind down, and is far longer than the cache lives, so no cached
+ * read of the old rule can outlast the change.
+ */
+export const JURISDICTION_MIN_LEAD_TIME_MS = 60 * 60_000;
+
+const cacheKey = (stateCode: string): string => `jurisdiction:v2:${stateCode}`;
 
 const cachedSchema = z.object({
   rule: z
@@ -25,6 +32,8 @@ const cachedSchema = z.object({
       effectiveFrom: z.iso.datetime().transform((value) => new Date(value)),
     })
     .nullable(),
+  // Milliseconds since the epoch, by the app clock. Redis expiry is the backstop.
+  validUntil: z.number().int(),
 });
 
 /** Collaborators for {@link JurisdictionService}. */
@@ -50,12 +59,14 @@ export class JurisdictionService {
    */
   async ruleFor(stateCode: string): Promise<JurisdictionRule | undefined> {
     const key = cacheKey(stateCode);
+    const now = this.deps.clock.now();
     const cached = await this.deps.redis.get(key);
     if (cached !== null) {
       const parsed = cachedSchema.safeParse(JSON.parse(cached));
-      if (parsed.success) return parsed.data.rule ?? undefined;
+      if (parsed.success && parsed.data.validUntil > now.getTime()) {
+        return parsed.data.rule ?? undefined;
+      }
     }
-    const now = this.deps.clock.now();
     const { rule, nextChangeAt } = await jurisdictionRepository.ruleAt(
       this.deps.pool,
       stateCode,
@@ -64,7 +75,12 @@ export class JurisdictionService {
     const untilChange =
       nextChangeAt === undefined ? Infinity : nextChangeAt.getTime() - now.getTime();
     const ttlMs = Math.max(1, Math.min(JURISDICTION_CACHE_TTL_MS, untilChange));
-    await this.deps.redis.set(key, JSON.stringify({ rule: rule ?? null }), 'PX', ttlMs);
+    await this.deps.redis.set(
+      key,
+      JSON.stringify({ rule: rule ?? null, validUntil: now.getTime() + ttlMs }),
+      'PX',
+      ttlMs,
+    );
     return rule;
   }
 
@@ -80,15 +96,16 @@ export class JurisdictionService {
    *
    * @param rule The new rule and its legal memo.
    * @param actor The admin making the change, and their IP.
-   * @throws ValidationError when `effectiveFrom` is not in the future.
+   * @throws ValidationError when `effectiveFrom` is less than an hour away.
    */
   async schedule(
     rule: NewJurisdictionRule,
     actor: { adminId: string; ip: string | null },
   ): Promise<void> {
-    if (rule.effectiveFrom <= this.deps.clock.now()) {
+    const earliest = this.deps.clock.now().getTime() + JURISDICTION_MIN_LEAD_TIME_MS;
+    if (rule.effectiveFrom.getTime() < earliest) {
       throw new ValidationError({
-        issues: [{ path: 'effectiveFrom', message: 'must be in the future' }],
+        issues: [{ path: 'effectiveFrom', message: 'must be at least one hour from now' }],
       });
     }
     await withTransaction(this.deps.pool, async (client) => {
