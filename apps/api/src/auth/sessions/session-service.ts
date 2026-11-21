@@ -5,7 +5,7 @@ import type { Pool } from 'pg';
 import type { AuditWriter, Queryable } from '../../audit/audit-writer.js';
 import { withTransaction } from '../../db/transaction.js';
 import { AUTH_POLICY } from '../auth-policy.js';
-import { addMs, type Clock } from '../clock.js';
+import { addMs, type Clock } from '../../shared/clock.js';
 import { randomToken, sha256Hex } from '../crypto/secrets.js';
 import type { AccessTokenService } from '../tokens/access-token-service.js';
 import { csrfTokenFor, isValidCsrfToken } from './csrf.js';

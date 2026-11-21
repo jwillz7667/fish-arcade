@@ -4,7 +4,8 @@ import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 
 import { AUTH_KEYS, CLOCK } from '../app/tokens.js';
-import { AuditWriter } from '../audit/audit-writer.js';
+import type { AuditWriter } from '../audit/audit-writer.js';
+import type { JurisdictionService } from '../compliance/jurisdictions/jurisdiction-service.js';
 import type { AuthDependencies } from './auth-dependencies.js';
 import { AUTH_POLICY } from './auth-policy.js';
 import { ContactChangeService } from './contact/contact-change-service.js';
@@ -36,7 +37,8 @@ export const AUTH_CONTROLLERS: readonly Type[] = [
  * Wires player auth from explicit dependencies. Services are plain classes constructed here,
  * not by Nest, so they stay framework-free; Nest only receives the finished instances.
  *
- * @param input Env, pool, Redis, and auth dependencies.
+ * @param input Env, pool, Redis, auth dependencies, the shared audit writer, and the
+ *   jurisdiction service (signup checks the declared home state).
  * @returns Providers for the root module.
  */
 export function createAuthProviders(input: {
@@ -44,10 +46,11 @@ export function createAuthProviders(input: {
   pool: Pool;
   redis: Redis;
   auth: AuthDependencies;
+  audit: AuditWriter;
+  jurisdictions: JurisdictionService;
 }): Provider[] {
-  const { env, pool, redis, auth } = input;
+  const { env, pool, redis, auth, audit, jurisdictions } = input;
   const { clock, keys, encryption } = auth;
-  const audit = new AuditWriter(pool);
   const accessTokens = new AccessTokenService(keys, clock);
   const hasher = new PasswordHasher();
   const throttle = new BackoffThrottle(redis);
@@ -87,6 +90,7 @@ export function createAuthProviders(input: {
   });
   const signup = new SignupService({
     pool,
+    jurisdictions,
     encryption,
     otp,
     sessions,
@@ -124,7 +128,6 @@ export function createAuthProviders(input: {
   return [
     { provide: AUTH_KEYS, useValue: keys },
     { provide: CLOCK, useValue: clock },
-    { provide: AuditWriter, useValue: audit },
     { provide: AccessTokenService, useValue: accessTokens },
     { provide: BackoffThrottle, useValue: throttle },
     { provide: SessionService, useValue: sessions },

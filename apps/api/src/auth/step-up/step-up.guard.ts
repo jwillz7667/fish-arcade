@@ -15,7 +15,7 @@ import { CLOCK } from '../../app/tokens.js';
 import { AuditWriter } from '../../audit/audit-writer.js';
 import { principalOf } from '../../http/principal.js';
 import { AUTH_POLICY } from '../auth-policy.js';
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import { BackoffThrottle, secondFactorSubject } from '../login/backoff-throttle.js';
 import { MfaService } from '../mfa/mfa-service.js';
 

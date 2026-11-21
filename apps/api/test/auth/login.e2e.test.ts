@@ -10,6 +10,7 @@ import {
   MOBILE,
   nextIp,
   post,
+  signupPost,
   PROFILE,
   signUp,
   totpAt,
@@ -272,7 +273,7 @@ describe('two-factor login', () => {
 describe('login edge cases', () => {
   it('signs in with a phone number', async () => {
     const phone = uniquePhone();
-    const started = await post(t, '/v1/auth/signup', {
+    const started = await signupPost(t, '/v1/auth/signup', {
       contact: { channel: 'sms', destination: phone },
       turnstileToken: 'pass',
     });
@@ -280,7 +281,7 @@ describe('login edge cases', () => {
     const { signupTicket } = (
       await post(t, '/v1/auth/otp/verify', { challengeId, code: t.auth.outbox.latestCode(phone) })
     ).json<{ signupTicket: string }>();
-    await post(t, '/v1/auth/signup/complete', {
+    await signupPost(t, '/v1/auth/signup/complete', {
       signupTicket,
       profile: PROFILE,
       credential: { type: 'password', password: GOOD_PASSWORD },

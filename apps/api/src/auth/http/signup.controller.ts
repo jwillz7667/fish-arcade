@@ -1,11 +1,13 @@
 import { Body, Controller, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/server';
+import { ComplianceBlockedError } from '@reef/errors';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 
 import { CLOCK } from '../../app/tokens.js';
+import { RequireJurisdiction } from '../../compliance/index.js';
 import { RateLimit } from '../../http/rate-limit/rate-limit.decorator.js';
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import { Public } from '../guards/public.decorator.js';
 import { OtpService } from '../otp/otp-service.js';
 import { SignupService } from '../signup/signup-service.js';
@@ -28,10 +30,11 @@ export class SignupController {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  /** Step 1: bot check, then a code to the email or phone. Same response whether or not an account exists. */
+  /** Step 1 (location-gated): bot check, then a code to the email or phone. Same response whether or not an account exists. */
   @Post('signup')
   @HttpCode(202)
   @RateLimit({ limit: 10, windowSeconds: 60 })
+  @RequireJurisdiction('signup')
   async start(
     @Body({ schema: signupStartBody }) body: z.infer<typeof signupStartBody>,
     @Req() request: FastifyRequest,
@@ -75,16 +78,23 @@ export class SignupController {
     return this.signup.passkeyOptions(body);
   }
 
-  /** Step 3: profile plus password or passkey. Creates the account and signs it in. */
+  /** Step 3 (location-gated): profile plus password or passkey. Creates the account and signs it in. */
   @Post('signup/complete')
   @HttpCode(201)
   @RateLimit({ limit: 10, windowSeconds: 60 })
+  @RequireJurisdiction('signup')
   async complete(
     @Body({ schema: signupCompleteBody }) body: z.infer<typeof signupCompleteBody>,
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<SessionResponse> {
-    const tokens = await this.signup.complete({ ...body, ip: request.ip });
+    const location = request.jurisdiction;
+    if (location === undefined) throw new ComplianceBlockedError();
+    const tokens = await this.signup.complete({
+      ...body,
+      ip: request.ip,
+      locationRule: location.rule,
+    });
     return deliverTokens(request, reply, tokens, this.clock.now());
   }
 }

@@ -17,7 +17,7 @@ import type { Pool } from 'pg';
 import type { AuditWriter } from '../../audit/audit-writer.js';
 import { isUniqueViolationOn, withTransaction } from '../../db/transaction.js';
 import { AUTH_POLICY } from '../auth-policy.js';
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import {
   passkeyRepository,
   PASSKEY_UNIQUE_CONSTRAINTS,

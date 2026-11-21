@@ -5,7 +5,7 @@ import type { z } from 'zod';
 
 import { CLOCK } from '../../app/tokens.js';
 import { RateLimit } from '../../http/rate-limit/rate-limit.decorator.js';
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import { Public } from '../guards/public.decorator.js';
 import { LoginService } from '../login/login-service.js';
 import { PasskeyService } from '../passkeys/passkey-service.js';

@@ -5,7 +5,7 @@ import { ErrorCode, ForbiddenError } from '@reef/errors';
 
 import type { AuthDependencies } from '../../src/auth/auth-dependencies.js';
 import type { BotVerifier } from '../../src/auth/bot/turnstile-verifier.js';
-import type { Clock } from '../../src/auth/clock.js';
+import type { Clock } from '../../src/shared/clock.js';
 import type { MessageSender, OutboundMessage } from '../../src/auth/messaging/message-sender.js';
 import type { BreachedPasswordChecker } from '../../src/auth/password/breached-password-checker.js';
 

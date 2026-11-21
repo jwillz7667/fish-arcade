@@ -8,6 +8,7 @@ import {
   MOBILE,
   nextIp,
   post,
+  signupPost,
   PROFILE,
   signUp,
   uniqueEmail,
@@ -30,7 +31,12 @@ afterAll(async () => {
 });
 
 const startSignup = (destination: string, channel: 'email' | 'sms' = 'email', ip = nextIp()) =>
-  post(t, '/v1/auth/signup', { contact: { channel, destination }, turnstileToken: 'pass' }, { ip });
+  signupPost(
+    t,
+    '/v1/auth/signup',
+    { contact: { channel, destination }, turnstileToken: 'pass' },
+    { ip },
+  );
 
 const errorCode = (response: InjectResponse): string => response.json<ErrorBody>().error.code;
 
@@ -107,7 +113,7 @@ describe('signup', () => {
   it('rejects a failed bot check before sending anything', async () => {
     const email = uniqueEmail();
 
-    const response = await post(t, '/v1/auth/signup', {
+    const response = await signupPost(t, '/v1/auth/signup', {
       contact: { channel: 'email', destination: email },
       turnstileToken: 'bot',
     });
@@ -119,7 +125,7 @@ describe('signup', () => {
   it('rejects a breached password and keeps the ticket usable', async () => {
     const signupTicket = await verifiedSignupTicket(t, uniqueEmail());
     const complete = (password: string) =>
-      post(
+      signupPost(
         t,
         '/v1/auth/signup/complete',
         { signupTicket, profile: PROFILE, credential: { type: 'password', password } },
@@ -139,7 +145,7 @@ describe('signup', () => {
   it('rejects passwords under 12 characters', async () => {
     const signupTicket = await verifiedSignupTicket(t, uniqueEmail());
 
-    const response = await post(t, '/v1/auth/signup/complete', {
+    const response = await signupPost(t, '/v1/auth/signup/complete', {
       signupTicket,
       profile: PROFILE,
       credential: { type: 'password', password: 'short-pw-11' },
@@ -155,7 +161,7 @@ describe('signup', () => {
     const now = t.auth.clock.now();
     const seventeen = `${String(now.getUTCFullYear() - 17)}-01-01`;
 
-    const response = await post(t, '/v1/auth/signup/complete', {
+    const response = await signupPost(t, '/v1/auth/signup/complete', {
       signupTicket,
       profile: { ...PROFILE, dateOfBirth: seventeen },
       credential: { type: 'password', password: GOOD_PASSWORD },
@@ -173,8 +179,8 @@ describe('signup', () => {
     };
 
     const [first, second] = [
-      await post(t, '/v1/auth/signup/complete', body),
-      await post(t, '/v1/auth/signup/complete', body),
+      await signupPost(t, '/v1/auth/signup/complete', body),
+      await signupPost(t, '/v1/auth/signup/complete', body),
     ];
 
     expect([first.statusCode, second.statusCode]).toEqual([201, 401]);
@@ -334,7 +340,7 @@ describe('resend limits and unknown challenges', () => {
   it('refuses a passkey signup that never asked for passkey options', async () => {
     const signupTicket = await verifiedSignupTicket(t, uniqueEmail());
 
-    const response = await post(t, '/v1/auth/signup/complete', {
+    const response = await signupPost(t, '/v1/auth/signup/complete', {
       signupTicket,
       profile: PROFILE,
       credential: {

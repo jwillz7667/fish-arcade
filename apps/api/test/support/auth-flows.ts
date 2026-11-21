@@ -41,6 +41,51 @@ export function post(
   });
 }
 
+/** Test jurisdictions (seeded in global setup): P, S, X, a 21+ P state, and one with no row. */
+export const TEST_STATES = { P: 'NV', S: 'TX', X: 'CA', P21: 'AL', NONE: 'WY' } as const;
+
+/**
+ * Runs a location check through the dev stub and returns the geo token header.
+ *
+ * @param place What the stub reports, e.g. `NV`, `NV;vpn`, `error`.
+ */
+export async function geoHeader(
+  t: TestApp,
+  context: 'signup' | 'purchase' | 'play_sc' | 'redeem',
+  options: { ip: string; place?: string; headers?: Record<string, string> },
+): Promise<Record<'x-geo-token', string>> {
+  const response = await post(
+    t,
+    '/v1/geo/check',
+    { context },
+    {
+      ip: options.ip,
+      headers: { 'x-reef-dev-geo': options.place ?? TEST_STATES.P, ...options.headers },
+    },
+  );
+  const body = response.json<{ result: string; geoToken?: string }>();
+  if (body.geoToken === undefined) throw new Error(`geo check not allowed: ${response.body}`);
+  return { 'x-geo-token': body.geoToken };
+}
+
+/**
+ * POST to a location-gated signup route: pins one client IP, runs a signup geo check from it,
+ * and sends the token with the request.
+ */
+export async function signupPost(
+  t: TestApp,
+  url: string,
+  body: unknown,
+  options: { headers?: Record<string, string>; ip?: string; place?: string } = {},
+): Promise<InjectResponse> {
+  const ip = options.ip ?? nextIp();
+  const geo = await geoHeader(t, 'signup', {
+    ip,
+    ...(options.place === undefined ? {} : { place: options.place }),
+  });
+  return post(t, url, body, { ip, headers: { ...geo, ...options.headers } });
+}
+
 /** Native-app header: tokens in the body. */
 export const MOBILE = { 'x-reef-client': 'mobile' } as const;
 
@@ -60,7 +105,7 @@ export async function verifiedSignupTicket(
   email: string,
   ip = nextIp(),
 ): Promise<string> {
-  const started = await post(
+  const started = await signupPost(
     t,
     '/v1/auth/signup',
     { contact: { channel: 'email', destination: email }, turnstileToken: 'pass' },
@@ -77,7 +122,7 @@ export async function verifiedSignupTicket(
 }
 
 /** A valid adult profile. */
-export const PROFILE = { displayName: 'Reef Tester', dateOfBirth: '1990-04-02', stateCode: 'NY' };
+export const PROFILE = { displayName: 'Reef Tester', dateOfBirth: '1990-04-02', stateCode: 'NV' };
 
 /**
  * Signs up with email and password as a native client.
@@ -90,7 +135,7 @@ export async function signUp(
   password: string = GOOD_PASSWORD,
 ): Promise<MobileSession & { email: string; password: string }> {
   const signupTicket = await verifiedSignupTicket(t, email);
-  const response = await post(
+  const response = await signupPost(
     t,
     '/v1/auth/signup/complete',
     { signupTicket, profile: PROFILE, credential: { type: 'password', password } },

@@ -6,7 +6,7 @@ import type { z } from 'zod';
 import { CLOCK } from '../../app/tokens.js';
 import { principalOf } from '../../http/principal.js';
 import { RateLimit } from '../../http/rate-limit/rate-limit.decorator.js';
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import { Public } from '../guards/public.decorator.js';
 import { MfaService } from '../mfa/mfa-service.js';
 import { SessionService, type RefreshRequest } from '../sessions/session-service.js';

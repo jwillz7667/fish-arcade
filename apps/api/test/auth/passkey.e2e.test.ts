@@ -6,6 +6,7 @@ import {
   asSession,
   MOBILE,
   post,
+  signupPost,
   PROFILE,
   signUp,
   uniqueEmail,
@@ -36,7 +37,7 @@ async function signUpWithPasskey(authenticator: SoftAuthenticator): Promise<Inje
     displayName: PROFILE.displayName,
   });
   const response = authenticator.register(options.json<{ challenge: string }>());
-  return post(
+  return signupPost(
     t,
     '/v1/auth/signup/complete',
     { signupTicket, profile: PROFILE, credential: { type: 'passkey', response } },
@@ -152,7 +153,7 @@ describe('passkey edge cases', () => {
       signupTicket,
       displayName: PROFILE.displayName,
     });
-    await post(t, '/v1/auth/signup/complete', {
+    await signupPost(t, '/v1/auth/signup/complete', {
       signupTicket,
       profile: PROFILE,
       credential: {

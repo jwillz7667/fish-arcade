@@ -5,7 +5,7 @@ import { jwtVerify, SignJWT } from 'jose';
 import { z } from 'zod';
 
 import { AUTH_POLICY } from '../auth-policy.js';
-import { addMs, type Clock } from '../clock.js';
+import { addMs, type Clock } from '../../shared/clock.js';
 import type { AuthKeys } from '../crypto/auth-keys.js';
 
 const ISSUER = 'reef-api';

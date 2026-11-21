@@ -6,6 +6,7 @@ import pg from 'pg';
 
 import { createApp } from './app/create-app.js';
 import { createAuthDependencies } from './auth/index.js';
+import { createGeoProvider } from './compliance/index.js';
 
 const env = loadEnv(apiEnvSchema);
 const requestContext = new RequestContext();
@@ -23,7 +24,15 @@ const auth = await createAuthDependencies(env).catch((error: unknown) => {
   process.stderr.write(formatConfigError(error));
   process.exit(1);
 });
-const app = await createApp({ env, pool, redis, logger, requestContext, auth });
+const app = await createApp({
+  env,
+  pool,
+  redis,
+  logger,
+  requestContext,
+  auth,
+  geoProvider: createGeoProvider(env),
+});
 
 let isShuttingDown = false;
 async function shutdown(signal: string): Promise<void> {

@@ -15,6 +15,7 @@ import { createApp } from '../../src/app/create-app.js';
 import { LOGGER } from '../../src/app/tokens.js';
 import { Public } from '../../src/auth/guards/public.decorator.js';
 import { RequireStepUp } from '../../src/auth/step-up/step-up.guard.js';
+import { DevStubGeoProvider, RequireJurisdiction } from '../../src/compliance/index.js';
 import { AccessTokenService } from '../../src/auth/tokens/access-token-service.js';
 import { MoneyRoute } from '../../src/http/idempotency/money-route.decorator.js';
 import { RateLimit } from '../../src/http/rate-limit/rate-limit.decorator.js';
@@ -88,6 +89,25 @@ export class TestController {
     return { ok: true };
   }
 
+  /** Stand-ins for the purchase, SC play, and redemption routes of later steps. */
+  @Post('purchase')
+  @RequireJurisdiction('purchase')
+  purchase(): { ok: true } {
+    return { ok: true };
+  }
+
+  @Post('play-sc')
+  @RequireJurisdiction('play_sc')
+  playSc(): { ok: true } {
+    return { ok: true };
+  }
+
+  @Post('redeem')
+  @RequireJurisdiction('redeem')
+  redeem(): { ok: true } {
+    return { ok: true };
+  }
+
   /** Stands in for payout-address and redemption routes until Steps 14 and 15. */
   @Post('sensitive')
   @RequireStepUp()
@@ -125,6 +145,9 @@ export function testEnv(overrides: EnvSource = {}): EnvSource {
     TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
     EMAIL_PROVIDER: 'mailpit',
     SMS_PROVIDER: 'mailpit',
+    GEO_PROVIDER: 'dev_stub',
+    // Short, so the provider-timeout test finishes quickly.
+    GEO_PROVIDER_TIMEOUT_MS: '300',
     ...overrides,
   };
 }
@@ -170,6 +193,7 @@ export async function buildTestApp(
     logger,
     requestContext,
     auth: auth.deps,
+    geoProvider: new DevStubGeoProvider(),
     controllers: [TestController],
   });
   const accessTokens = app.get(AccessTokenService);
