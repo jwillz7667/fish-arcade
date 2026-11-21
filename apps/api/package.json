@@ -3,7 +3,23 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@reef/errors": "workspace:*",
+    "@reef/ledger": "workspace:*",
+    "@reef/money": "workspace:*",
+    "pg": "8.23.1"
+  },
   "devDependencies": {
-    "@reef/config": "workspace:*"
+    "@reef/config": "workspace:*",
+    "@reef/db": "workspace:*",
+    "@types/node": "22.20.5",
+    "@types/pg": "8.23.1",
+    "fast-check": "4.10.2",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0"
   }
 }
