@@ -22,13 +22,23 @@ export const REFRESH_COOKIE_PATH = '/v1/auth';
 
 const COOKIE_VALUE = /^[A-Za-z0-9._~-]+$/;
 
-interface CookieOptions {
+/** Attributes for {@link serializeCookie}. Every cookie is `Secure`. */
+export interface CookieOptions {
   readonly path: string;
   readonly maxAgeSeconds: number;
   readonly isHttpOnly: boolean;
+  /** Defaults to Lax. The back office uses Strict. */
+  readonly sameSite?: 'Lax' | 'Strict';
 }
 
-function serialize(name: string, value: string, options: CookieOptions): string {
+/**
+ * @param name Cookie name.
+ * @param value base64url or JWT value, or empty to expire the cookie.
+ * @param options Path, lifetime, and flags.
+ * @returns A `Set-Cookie` header value.
+ * @throws Error when the value has characters that could inject attributes.
+ */
+export function serializeCookie(name: string, value: string, options: CookieOptions): string {
   // Only our own base64url and JWT values are written; anything else is a bug.
   if (value !== '' && !COOKIE_VALUE.test(value))
     throw new Error(`Refusing to write cookie ${name}`);
@@ -39,7 +49,7 @@ function serialize(name: string, value: string, options: CookieOptions): string 
     // refused), while one expiring early would drop a still-valid session.
     `Max-Age=${String(Math.max(0, Math.ceil(options.maxAgeSeconds)))}`,
     'Secure',
-    'SameSite=Lax',
+    `SameSite=${options.sameSite ?? 'Lax'}`,
   ];
   if (options.isHttpOnly) parts.push('HttpOnly');
   return parts.join('; ');
@@ -79,17 +89,17 @@ const secondsUntil = (date: Date, now: Date): number => (date.getTime() - now.ge
 export function setSessionCookies(reply: CookieSink, tokens: IssuedTokens, now: Date): void {
   const refreshMaxAge = secondsUntil(tokens.refreshTokenExpiresAt, now);
   void reply.header('set-cookie', [
-    serialize(COOKIE_NAMES.access, tokens.accessToken, {
+    serializeCookie(COOKIE_NAMES.access, tokens.accessToken, {
       path: '/',
       maxAgeSeconds: secondsUntil(tokens.accessTokenExpiresAt, now),
       isHttpOnly: true,
     }),
-    serialize(COOKIE_NAMES.refresh, tokens.refreshToken, {
+    serializeCookie(COOKIE_NAMES.refresh, tokens.refreshToken, {
       path: REFRESH_COOKIE_PATH,
       maxAgeSeconds: refreshMaxAge,
       isHttpOnly: true,
     }),
-    serialize(COOKIE_NAMES.csrf, tokens.csrfToken, {
+    serializeCookie(COOKIE_NAMES.csrf, tokens.csrfToken, {
       path: '/',
       maxAgeSeconds: refreshMaxAge,
       isHttpOnly: false,
@@ -104,12 +114,12 @@ export function setSessionCookies(reply: CookieSink, tokens: IssuedTokens, now: 
  */
 export function clearSessionCookies(reply: CookieSink): void {
   void reply.header('set-cookie', [
-    serialize(COOKIE_NAMES.access, '', { path: '/', maxAgeSeconds: 0, isHttpOnly: true }),
-    serialize(COOKIE_NAMES.refresh, '', {
+    serializeCookie(COOKIE_NAMES.access, '', { path: '/', maxAgeSeconds: 0, isHttpOnly: true }),
+    serializeCookie(COOKIE_NAMES.refresh, '', {
       path: REFRESH_COOKIE_PATH,
       maxAgeSeconds: 0,
       isHttpOnly: true,
     }),
-    serialize(COOKIE_NAMES.csrf, '', { path: '/', maxAgeSeconds: 0, isHttpOnly: false }),
+    serializeCookie(COOKIE_NAMES.csrf, '', { path: '/', maxAgeSeconds: 0, isHttpOnly: false }),
   ]);
 }

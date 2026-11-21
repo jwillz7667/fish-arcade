@@ -19,6 +19,8 @@ export interface AuditEvent {
   readonly targetType?: string;
   readonly targetId?: string;
   readonly details?: Readonly<Record<string, string | number | boolean | null>>;
+  /** For admin writes: changed fields before and after, with PII already masked. */
+  readonly diff?: { readonly before: unknown; readonly after: unknown };
   /** Client IP as seen by the API (after TRUST_PROXY_HOPS). */
   readonly ip: string | null;
 }
@@ -35,16 +37,19 @@ export class AuditWriter {
    * @param client Transaction client; defaults to the pool.
    */
   async record(event: AuditEvent, client: Queryable = this.pool): Promise<void> {
+    const after: unknown = event.diff === undefined ? event.details : event.diff.after;
     await client.query(
-      `INSERT INTO audit_logs (actor_type, actor_id, action, target_type, target_id, after, ip)
-       VALUES ($1::"ActorType", $2, $3, $4, $5, $6::jsonb, $7::inet)`,
+      `INSERT INTO audit_logs
+         (actor_type, actor_id, action, target_type, target_id, before, after, ip)
+       VALUES ($1::"ActorType", $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::inet)`,
       [
         event.actorType,
         event.actorId,
         event.action,
         event.targetType ?? null,
         event.targetId ?? null,
-        event.details === undefined ? null : JSON.stringify(event.details),
+        event.diff === undefined ? null : JSON.stringify(event.diff.before),
+        after === undefined ? null : JSON.stringify(after),
         event.ip,
       ],
     );

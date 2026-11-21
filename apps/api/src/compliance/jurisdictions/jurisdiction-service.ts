@@ -68,6 +68,11 @@ export class JurisdictionService {
     return rule;
   }
 
+  /** @returns Every state's rule in force now, for the back office. Uncached. */
+  async listCurrent(): Promise<JurisdictionRule[]> {
+    return jurisdictionRepository.listAt(this.deps.pool, this.deps.clock.now());
+  }
+
   /**
    * Schedules a rule change (spec §4.1: changes take effect at a scheduled time, never mid-
    * session) and busts the cache. Only the Compliance role may call this; the admin route that

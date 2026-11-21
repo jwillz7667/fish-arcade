@@ -11,6 +11,7 @@ import {
   createAuthProviders,
   type AuthDependencies,
 } from '../auth/index.js';
+import { ADMIN_CONTROLLERS, createAdminProviders } from '../admin/index.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import {
   COMPLIANCE_CONTROLLERS,
@@ -39,6 +40,8 @@ export interface AppDependencies {
   readonly geoProvider: GeoProvider;
   /** Identity verification vendor. */
   readonly kycProvider: KycProvider;
+  /** fetch for the admin OIDC client; tests point it at a fake IdP. */
+  readonly oidcFetch?: typeof fetch;
   /** Extra controllers, for feature modules added in later steps and for tests. */
   readonly controllers?: readonly Type[];
 }
@@ -64,6 +67,7 @@ export class AppModule {
         HealthController,
         ...AUTH_CONTROLLERS,
         ...COMPLIANCE_CONTROLLERS,
+        ...ADMIN_CONTROLLERS,
         ...(deps.controllers ?? []),
       ],
       providers: [
@@ -75,6 +79,13 @@ export class AppModule {
         { provide: IdempotencyStore, useFactory: () => new IdempotencyStore(deps.redis) },
         { provide: AuditWriter, useValue: audit },
         ...compliance.providers,
+        ...createAdminProviders({
+          ...deps,
+          audit,
+          clock: deps.auth.clock,
+          hmacKey: deps.auth.keys.hmacKey,
+          encryption: deps.auth.encryption,
+        }),
         ...createAuthProviders({ ...deps, audit, jurisdictions: compliance.jurisdictions }),
         // Guards run in this order: authenticate first, so per-principal limits see the user.
         { provide: APP_GUARD, useClass: AuthGuard },

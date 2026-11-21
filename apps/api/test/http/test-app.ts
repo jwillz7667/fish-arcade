@@ -2,15 +2,18 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { randomUUID } from 'node:crypto';
 
-import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Req } from '@nestjs/common';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { apiEnvSchema, parseEnv, type ApiEnv, type EnvSource } from '@reef/config';
+import { ConflictError } from '@reef/errors';
 import { createLogger, RequestContext, type Logger } from '@reef/logger';
+import type { FastifyRequest } from 'fastify';
 import { Redis } from 'ioredis';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { z } from 'zod';
 
+import { AdminController, RequirePermission } from '../../src/admin/http/admin-decorators.js';
 import { createApp } from '../../src/app/create-app.js';
 import { LOGGER } from '../../src/app/tokens.js';
 import { Public } from '../../src/auth/guards/public.decorator.js';
@@ -135,6 +138,37 @@ export class TestController {
   }
 }
 
+/** Admin routes that exercise the back office plumbing. Registered only in tests. */
+@AdminController('test')
+export class TestAdminController {
+  /** Declares no permission: the admin guard must refuse it. */
+  @Post('undeclared')
+  undeclared(): { ok: true } {
+    return { ok: true };
+  }
+
+  /** A write that fails after the guard, so the interceptor records the failure. */
+  @Post('fail')
+  @RequirePermission('players.write')
+  fail(): never {
+    throw new ConflictError({ message: 'test failure' });
+  }
+
+  /** A write that describes its change for the audit interceptor. */
+  @Post('write')
+  @RequirePermission('players.write')
+  write(@Req() request: FastifyRequest): { ok: true } {
+    request.adminAudit = {
+      action: 'admin.test.write',
+      targetType: 'player',
+      targetId: 'p-1',
+      before: { displayName: 'Old', email: 'old@example.com', status: 'active' },
+      after: { displayName: 'New', email: 'new@example.com', status: 'active' },
+    };
+    return { ok: true };
+  }
+}
+
 /** A built app plus the log lines it wrote and its auth doubles. */
 export interface TestApp {
   readonly app: NestFastifyApplication;
@@ -169,6 +203,11 @@ export function testEnv(overrides: EnvSource = {}): EnvSource {
     GEO_PROVIDER: 'dev_stub',
     KYC_PROVIDER: 'dev_stub',
     KYC_WEBHOOK_SECRET: 'test-kyc-webhook-secret-0123456789abcdef',
+    ADMIN_LOGIN_MODE: 'dev_local',
+    ADMIN_ALLOWED_EMAIL_DOMAINS: 'reef.test',
+    ADMIN_WEB_ORIGIN: 'http://localhost:3001',
+    // Test clients come from random 10.x addresses (see nextIp).
+    ADMIN_IP_ALLOWLIST: '10.0.0.0/8,127.0.0.1/32',
     // Short, so the provider-timeout test finishes quickly.
     GEO_PROVIDER_TIMEOUT_MS: '300',
     ...overrides,
@@ -219,7 +258,7 @@ export async function buildTestApp(
     auth: auth.deps,
     geoProvider: new DevStubGeoProvider(),
     kycProvider: kyc,
-    controllers: [TestController],
+    controllers: [TestController, TestAdminController],
   });
   const accessTokens = app.get(AccessTokenService);
   return {

@@ -114,6 +114,29 @@ The client checks location for an action, then sends the result with the gated r
 - **Guards.** `@RequireKyc('light' | 'full')` needs a passed check at that level (full satisfies light) and no sanctions hit. `@RequireRedemptionEligibility()`, for the redemption and payout routes of Steps 14 and 15, needs full KYC and no redemption hold (`REDEMPTION_SUSPENDED`).
 - **Provider.** `KYC_PROVIDER=dev_stub` is the only option, and config rejects it in production. The stub keeps scripted outcomes (`passed`, `failed`, `review`, `sanctions_hit`) in Redis and signs webhooks with `KYC_WEBHOOK_SECRET` (`X-Reef-Kyc-Signature: t=…,v1=…`).
 
+## Back office foundation (`src/admin`, Step 9, spec §13)
+
+Every route is under `/v1/admin` and goes through `AdminGuard`, in this order:
+
+1. **IP allowlist** (`ADMIN_IP_ALLOWLIST`, CIDR blocks). This applies to login too.
+2. **Admin session** from the `__Host-reef_admin` cookie (Strict, httpOnly). Player tokens never work here, and admin sessions never work on player routes.
+3. **CSRF**: writes need `X-CSRF-Token`, an HMAC of the session distinct from the player one.
+4. **Permission**: the route's `@RequirePermission(...)`. A route without one is refused with 403, even for a super admin. Denials are audited.
+
+**Sign-in.** OIDC SSO with PKCE (`/admin/auth/oidc/start` and `/callback`), built on `jose` and fetch. The ID token's issuer, audience, expiry, nonce, and `email_verified` are all checked; the email must belong to an existing, active admin in `ADMIN_ALLOWED_EMAIL_DOMAINS`. In development, `ADMIN_LOGIN_MODE=dev_local` enables `POST /admin/auth/dev-login` for the seeded `admin@reef.local`. Either way, TOTP is mandatory: the first login enrols (`mfa/setup`, then `mfa/verify`), and every later login needs a code. Admins have no recovery codes; a super admin resets them.
+
+**Sessions.** The token is stored as a SHA-256 hash. Sessions end after 30 idle minutes (spec §13.3), 12 hours at most, on logout, or when the admin is disabled. Roles are re-read on every request, so role changes apply immediately.
+
+**RBAC** (`admin-permissions.ts`, spec §13.1). Each role maps to explicit permissions; nothing is implied. Super admin holds everything, and at most two admins may (enforced under an advisory lock). Nobody can change their own roles.
+
+**Audit.** `AdminAuditInterceptor` writes a row for every admin write: actor, action, target, a before/after diff of only the changed fields with PII masked by the logger's redaction rules, and IP. Failed writes are recorded with their error code. Routes whose service audits in the same transaction (`@AuditedInTransaction`) are not written twice.
+
+**Four-eyes approvals** (`/admin/approvals`). A request stores the action and payload. A second admin with the action's approve permission, who is not the requester, approves it, and the action executes in the same transaction. Requests expire after 24 hours and then cannot execute; the requester may withdraw. The first registered action is `account_hold.release` (Compliance requests, a different Compliance officer approves).
+
+**PII masking.** `GET /admin/players/:id` shows email, phone, and date of birth only with `players.read_pii`. Support sees `j***@e***.com`.
+
+**Also here.** Jurisdictions (`GET` and `POST /admin/jurisdictions`, Compliance only, scheduled changes), role assignment (`PUT /admin/admins/:id/roles`), and the audit log viewer (`GET /admin/audit`, cursor-paginated).
+
 ## Test
 
 ```sh
