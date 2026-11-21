@@ -4,6 +4,7 @@ import { createLogger, RequestContext } from '@reef/logger';
 import { Redis } from 'ioredis';
 import pg from 'pg';
 
+import { downloadSdnList, OfacImporter, OfacImportJob } from './ofac/index.js';
 import { createPriceOracle } from './price-oracle/index.js';
 
 const env = loadEnv(workersEnvSchema);
@@ -36,12 +37,19 @@ logger.info(
   'price oracle started',
 );
 
+const ofacImport = new OfacImportJob({
+  download: () => downloadSdnList(env.OFAC_SDN_URL),
+  importer: new OfacImporter(pool),
+  logger,
+});
+ofacImport.start(env.OFAC_IMPORT_INTERVAL_HOURS * 3_600_000);
+
 let isShuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
   if (isShuttingDown) return;
   isShuttingDown = true;
   logger.info({ signal }, 'workers shutting down');
-  await oracle.stop();
+  await Promise.allSettled([oracle.stop(), ofacImport.stop()]);
   await Promise.allSettled([redis.quit(), pool.end()]);
   logger.info('workers stopped');
 }

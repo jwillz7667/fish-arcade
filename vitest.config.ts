@@ -69,6 +69,7 @@ export default defineConfig({
         // integration tests.
         'apps/workers/src/main.ts',
         'apps/workers/src/price-oracle/price-stores.ts',
+        'apps/workers/src/ofac/ofac-importer.ts',
         'apps/api/src/shared/**',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],
