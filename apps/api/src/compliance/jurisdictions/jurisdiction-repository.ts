@@ -74,6 +74,13 @@ export const jurisdictionRepository = {
     }));
   },
 
+  /**
+   * Adds a rule that takes effect at `rule.effectiveFrom`. Rows are never updated.
+   *
+   * @param client Transaction client.
+   * @param rule The rule and its legal memo reference.
+   * @throws DatabaseError (unique violation) when the state already has a rule at that time.
+   */
   async insert(client: Queryable, rule: NewJurisdictionRule): Promise<void> {
     await client.query(
       `INSERT INTO jurisdictions

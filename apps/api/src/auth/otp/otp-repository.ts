@@ -53,6 +53,12 @@ const toRecord = (row: ChallengeRow): OtpChallengeRecord => ({
 
 /** SQL for `otp_challenges`. Every value is a bound parameter. */
 export const otpRepository = {
+  /**
+   * Creates a challenge. `codeHash` is null for SMS, where the vendor holds the code.
+   *
+   * @param client Pool or transaction client.
+   * @param input The challenge, with its destination encrypted and blind-indexed.
+   */
   async insert(
     client: Queryable,
     input: {
@@ -86,6 +92,12 @@ export const otpRepository = {
     );
   },
 
+  /**
+   * @param client Transaction client.
+   * @param id Challenge.
+   * @param purpose The flow it must belong to; another flow's challenge reads as unknown.
+   * @returns The challenge, row-locked until the transaction ends, or undefined.
+   */
   async lock(
     client: Queryable,
     id: string,
@@ -99,6 +111,12 @@ export const otpRepository = {
     return row === undefined ? undefined : toRecord(row);
   },
 
+  /**
+   * @param client Pool or transaction client.
+   * @param id Challenge.
+   * @param purpose The flow it must belong to.
+   * @returns The challenge without locking it, or undefined.
+   */
   async find(
     client: Queryable,
     id: string,
@@ -112,6 +130,12 @@ export const otpRepository = {
     return row === undefined ? undefined : toRecord(row);
   },
 
+  /**
+   * Records a resend: the new code hash, one more send, and a fresh expiry.
+   *
+   * @param client Transaction client holding the challenge lock.
+   * @param input Challenge, new code hash, and times.
+   */
   async recordResend(
     client: Queryable,
     input: { id: string; codeHash: string | null; now: Date; expiresAt: Date },

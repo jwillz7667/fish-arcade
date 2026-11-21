@@ -175,6 +175,22 @@ describe('postJournal: failure', () => {
   });
 });
 
+describe('postJournal: database unavailable', () => {
+  it('reports an unreachable database as retryable, not as corrupt data', async () => {
+    const unreachable = new pg.Pool({
+      connectionString: 'postgresql://reef_app@127.0.0.1:1/reef',
+      connectionTimeoutMillis: 1_000,
+    });
+
+    await expect(
+      postJournal(unreachable, transfer(issued, playerAccount(randomUUID(), 'GC'), 1n)),
+    ).rejects.toMatchObject({
+      code: ErrorCode.DEPENDENCY_UNAVAILABLE,
+    });
+    await unreachable.end();
+  });
+});
+
 describe('postJournal: retry', () => {
   it('replays the same key and payload without moving money twice', async () => {
     const player = await newPlayer();
@@ -235,6 +251,44 @@ describe('postJournal: concurrency', () => {
 
     expect(Object.fromEntries(actual)).toEqual(Object.fromEntries(expected));
     expect(await ledgerTotals()).toMatchObject({ balances: 0n, mismatched: 0n, negative: 0n });
+  });
+
+  it('replays a concurrent retry of a full-balance debit instead of reporting insufficient funds', async () => {
+    const player = await newPlayer(100n);
+    const debit = transfer(player.gc, issued, 100n);
+
+    const results = await Promise.all([postJournal(pool, debit), postJournal(pool, debit)]);
+
+    expect(new Set(results.map((result) => result.journalId)).size).toBe(1);
+    expect(results.filter((result) => !result.isReplay)).toHaveLength(1);
+    expect(await balance(player.gc)).toBe(0n);
+  });
+
+  it('creates the same new accounts from journals listing them in opposite orders', async () => {
+    const pairs = Array.from({ length: 10 }, () => [
+      playerAccount(randomUUID(), 'GC'),
+      playerAccount(randomUUID(), 'GC'),
+    ]);
+    const journals = pairs.flatMap(([a, b]) => {
+      if (a === undefined || b === undefined) throw new Error('unreachable');
+      const grant = (first: AccountRef, second: AccountRef): JournalInput => ({
+        type: 'test_grant',
+        idempotencyKey: randomUUID(),
+        createdBy: 'integration-test',
+        entries: [
+          { account: issued, amount: units(-2n) },
+          { account: first, amount: units(1n) },
+          { account: second, amount: units(1n) },
+        ],
+      });
+      return [grant(a, b), grant(b, a)];
+    });
+
+    const results = await Promise.allSettled(journals.map((journal) => postJournal(pool, journal)));
+
+    expect(results.filter((result) => result.status === 'rejected')).toEqual([]);
+    const balances = await getBalances(pool, pairs.flat());
+    expect([...balances.values()].every((amount) => amount === 2n)).toBe(true);
   });
 
   it('never overdraws when parallel debits race for the same balance', async () => {

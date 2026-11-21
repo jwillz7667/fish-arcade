@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { isPlaceholderSecret } from './dev-only-rules.js';
+
 /**
  * Geolocation settings (playbook Step 7, spec §15). Only the dev stub exists so far, and it is
  * rejected in production, so production fails closed until a vendor adapter is added.
@@ -31,4 +33,5 @@ export const KYC_SHAPE = {
 /** Values that must never reach production. */
 export const KYC_DEV_ONLY_RULES = {
   KYC_PROVIDER: (value: unknown) => value === 'dev_stub',
+  KYC_WEBHOOK_SECRET: isPlaceholderSecret,
 };

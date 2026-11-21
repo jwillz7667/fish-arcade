@@ -12,6 +12,11 @@ const env = loadEnv(apiEnvSchema);
 const requestContext = new RequestContext();
 const logger = createLogger({ service: 'api', level: env.LOG_LEVEL, context: requestContext });
 const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 20 });
+// An idle client that loses its connection (an RDS failover, say) emits here, and with no
+// listener Node would exit. pg drops that client; queries already running fail on their own.
+pool.on('error', (error: Error) => {
+  logger.error({ err: error }, 'postgres idle client error');
+});
 const redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: 2, enableOfflineQueue: false });
 // Connection errors surface as failed commands (and fail closed); log them once here.
 redis.on('error', (error: Error) => {

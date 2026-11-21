@@ -49,6 +49,15 @@ export const ADMIN_SHAPE = {
   ADMIN_SESSION_MAX_HOURS: z.coerce.number().int().min(1).max(24).default(12),
 };
 
+const MIN_IPV4_PREFIX = 8;
+const MIN_IPV6_PREFIX = 32;
+
+function isOverlyBroadBlock(cidr: string): boolean {
+  const [address = '', bits = ''] = cidr.split('/');
+  const prefix = Number.parseInt(bits, 10);
+  return address.includes(':') ? prefix < MIN_IPV6_PREFIX : prefix < MIN_IPV4_PREFIX;
+}
+
 const isHttp = (value: unknown): boolean => typeof value === 'string' && value.startsWith('http:');
 
 /** Values that must never reach production. */
@@ -57,7 +66,8 @@ export const ADMIN_DEV_ONLY_RULES = {
   ADMIN_OIDC_ISSUER: isHttp,
   ADMIN_OIDC_REDIRECT_URI: isHttp,
   ADMIN_WEB_ORIGIN: isHttp,
-  // An allowlist that allows everyone is no allowlist.
+  // An allowlist that allows everyone is no allowlist, and a few huge blocks add up to
+  // everyone (0.0.0.0/1 plus 128.0.0.0/1). A VPN's 10.0.0.0/8 is the widest block accepted.
   ADMIN_IP_ALLOWLIST: (value: unknown) =>
-    Array.isArray(value) && value.some((cidr) => cidr === '0.0.0.0/0' || cidr === '::/0'),
+    Array.isArray(value) && value.some((cidr) => isOverlyBroadBlock(String(cidr))),
 };

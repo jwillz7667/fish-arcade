@@ -117,12 +117,25 @@ export const DEV_JURISDICTIONS = US_STATE_CODES.map((stateCode) => {
   };
 });
 
+/**
+ * Placeholder versions of the signup documents (spec §5.1) so local signup works. Counsel
+ * publishes the real ones; these URLs point nowhere.
+ */
+export const DEV_LEGAL_DOCUMENTS = (['terms', 'official_rules', 'privacy'] as const).map(
+  (docType) => ({
+    docType,
+    version: 'dev-1',
+    url: `https://reef.local/legal/${docType}/dev-1`,
+    effectiveAt: DEV_EFFECTIVE_FROM,
+  }),
+);
+
 /** The dev-only back office login (playbook Step 9). It still has to enrol TOTP. */
 export const DEV_ADMIN_EMAIL = 'admin@reef.local';
 
 /**
  * Seeds reference data for local development: admin roles, system flags, dev jurisdiction
- * rows, and a super admin for the local login. Idempotent: existing rows are left as they are.
+ * rows, placeholder legal documents, and a super admin for the local login. Idempotent: existing rows are left as they are.
  *
  * @param prisma A client connected as reef_app.
  * @param nodeEnv Current NODE_ENV.
@@ -146,6 +159,7 @@ export async function seedReferenceData(prisma: PrismaClient, nodeEnv: string): 
       skipDuplicates: true,
     }),
     prisma.jurisdiction.createMany({ data: DEV_JURISDICTIONS, skipDuplicates: true }),
+    prisma.rulesVersion.createMany({ data: DEV_LEGAL_DOCUMENTS, skipDuplicates: true }),
   ]);
   const admin = await prisma.adminUser.upsert({
     where: { email: DEV_ADMIN_EMAIL },

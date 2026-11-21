@@ -54,6 +54,14 @@ export class TestController {
     return { amount: body.amount, call };
   }
 
+  /** Fails after its side effect, as a crash after a commit would. */
+  @Post('echo-crash')
+  @MoneyRoute()
+  echoCrash(): never {
+    calls.echo += 1;
+    throw new Error('lost connection after commit');
+  }
+
   @Post('validate')
   @Public()
   validate(@Body({ schema: echoSchema }) body: z.infer<typeof echoSchema>): {

@@ -287,6 +287,17 @@ describe('admin SSO (OIDC with PKCE)', () => {
     expect(callback.statusCode).toBe(401);
   });
 
+  it('binds the admin to their IdP subject and refuses a different person with the same email', async () => {
+    const admin = await createAdmin(db, ['analyst']);
+
+    const first = await ssoLogin({ email: admin.email });
+    const again = await ssoLogin({ email: admin.email });
+    const impostor = await ssoLogin({ email: admin.email, subject: 'someone-who-got-the-email' });
+
+    expect([first.callback.statusCode, again.callback.statusCode]).toEqual([302, 302]);
+    expect(errorCode(impostor.callback)).toBe('INVALID_CREDENTIALS');
+  });
+
   it('refuses an IdP user who is not an admin', async () => {
     const { callback } = await ssoLogin({ email: 'intern@reef.test' });
 

@@ -53,7 +53,7 @@ type Rotation =
       readonly authTime: Date;
       readonly amr: readonly string[];
     }
-  | { readonly kind: 'reused'; readonly sessionId: string };
+  | { readonly kind: 'revoked'; readonly sessionId: string; readonly reason: string };
 
 /**
  * Login sessions and refresh-token families (playbook Step 6). Refresh tokens are opaque
@@ -68,6 +68,8 @@ export class SessionService {
    *
    * @param input The user, the methods used (RFC 8176 `amr`), and the client IP.
    * @returns Fresh tokens.
+   * @throws AuthError INVALID_CREDENTIALS when the account is closed. Every login method
+   *   (password, passkey, MFA completion, signup) starts its session here, so none can bypass it.
    */
   async start(input: {
     userId: string;
@@ -78,6 +80,9 @@ export class SessionService {
     const expiresAt = addMs(now, this.deps.refreshTtlDays * DAY_MS);
     const refreshToken = randomToken();
     const sessionId = await withTransaction(this.deps.pool, async (client) => {
+      if (!(await sessionRepository.isAccountOpen(client, input.userId))) {
+        throw new AuthError({ code: ErrorCode.INVALID_CREDENTIALS });
+      }
       const id = await sessionRepository.createSession(client, {
         userId: input.userId,
         authTime: now,
@@ -118,8 +123,8 @@ export class SessionService {
    *
    * @param request The token, client IP, and CSRF header for cookie clients.
    * @returns Fresh tokens. `authTime` carries over, so refresh never satisfies step-up.
-   * @throws AuthError when the token is unknown, expired, revoked, or reused (reuse also
-   *   revokes the session).
+   * @throws AuthError when the token is unknown, expired, revoked, or reused, or the account
+   *   was closed (reuse and closure also revoke the session).
    * @throws ForbiddenError (CSRF_INVALID) when a cookie client sends no valid CSRF header.
    */
   async refresh(request: RefreshRequest): Promise<IssuedTokens> {
@@ -145,7 +150,17 @@ export class SessionService {
           ip: request.ip,
           at: now,
         });
-        return { kind: 'reused', sessionId: record.sessionId };
+        return { kind: 'revoked', sessionId: record.sessionId, reason: 'Refresh token reused' };
+      }
+      if (record.isAccountClosed) {
+        await this.#revokeInTransaction(client, {
+          sessionId: record.sessionId,
+          userId: record.userId,
+          reason: 'account_closed',
+          ip: request.ip,
+          at: now,
+        });
+        return { kind: 'revoked', sessionId: record.sessionId, reason: 'Account closed' };
       }
       if (record.expiresAt <= now || record.sessionExpiresAt <= now) {
         throw new AuthError({ message: 'Refresh token expired' });
@@ -183,10 +198,10 @@ export class SessionService {
       };
     });
 
-    if (rotation.kind === 'reused') {
+    if (rotation.kind === 'revoked') {
       // The revocation committed above; now cut off access tokens already in flight.
       await this.#cacheRevocations([rotation.sessionId]);
-      throw new AuthError({ message: 'Refresh token reused; session revoked' });
+      throw new AuthError({ message: `${rotation.reason}; session revoked` });
     }
     return this.#issue({ ...rotation.tokens, authTime: rotation.authTime, amr: rotation.amr });
   }

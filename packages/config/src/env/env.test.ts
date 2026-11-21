@@ -52,7 +52,8 @@ const PROD_API_ENV: EnvSource = {
   SMS_PROVIDER: 'mailpit',
   GEO_PROVIDER: 'dev_stub',
   KYC_PROVIDER: 'dev_stub',
-  KYC_WEBHOOK_SECRET: 'dev-kyc-webhook-secret-at-least-32-chars',
+  KYC_WEBHOOK_SECRET: `${SECRET}-${SECRET}-${SECRET}`,
+  TRUST_PROXY_HOPS: '1',
   ADMIN_LOGIN_MODE: 'oidc',
   ADMIN_OIDC_ISSUER: 'https://sso.example.com',
   ADMIN_OIDC_CLIENT_ID: 'reef-admin',
@@ -178,7 +179,6 @@ describe('parseEnv', () => {
     expect(parseEnv(apiEnvSchema, source)).toMatchObject({
       CORS_ORIGINS: ['https://play.example.com', 'https://admin.example.com'],
       API_HOST: '0.0.0.0',
-      TRUST_PROXY_HOPS: 0,
       RATE_LIMIT_PER_MINUTE: 300,
       SHUTDOWN_TIMEOUT_MS: 10_000,
     });
@@ -227,6 +227,13 @@ describe('dev-only settings in production', () => {
     ['DATABASE_URL', 'postgresql://reef:x@db.internal:5432/reef'],
     ['DATABASE_URL', 'postgresql://reef:x@db.internal:5432/reef?sslmode=disable'],
     ['DATABASE_URL', 'postgresql://reef:x@db.internal:5432/reef?sslmode=prefer'],
+    // These skip the chain or hostname check under some parsers; only verify-full is safe.
+    ['DATABASE_URL', 'postgresql://reef:x@db.internal:5432/reef?sslmode=require'],
+    ['DATABASE_URL', 'postgresql://reef:x@db.internal:5432/reef?sslmode=verify-ca'],
+    [
+      'DATABASE_URL',
+      'postgresql://reef:x@db.internal:5432/reef?sslmode=require&uselibpqcompat=true',
+    ],
     ['REDIS_URL', 'redis://:x@cache.internal:6379'],
   ])('rejects plaintext %s', (key, value) => {
     const paths = prodIssuePaths({ ...PROD_API_ENV, [key]: value });
@@ -262,8 +269,29 @@ describe('dev-only settings in production', () => {
     ['ADMIN_OIDC_ISSUER', 'http://sso.example.com'],
     ['ADMIN_WEB_ORIGIN', 'http://admin.example.com'],
     ['ADMIN_IP_ALLOWLIST', '0.0.0.0/0'],
+    ['ADMIN_IP_ALLOWLIST', '0.0.0.0/1,128.0.0.0/1'],
+    ['ADMIN_IP_ALLOWLIST', '2000::/3'],
+    ['KYC_WEBHOOK_SECRET', 'change-me-to-at-least-32-random-characters'],
+    ['HIBP_ENABLED', 'false'],
   ])('rejects the dev-only auth setting %s in production', (key, value) => {
     expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value })).toContain(key);
+  });
+
+  it('requires TRUST_PROXY_HOPS to be stated in production', () => {
+    const unset = Object.fromEntries(
+      Object.entries(PROD_API_ENV).filter(([key]) => key !== 'TRUST_PROXY_HOPS'),
+    );
+
+    expect(issuePaths(apiEnvSchema, unset)).toContain('TRUST_PROXY_HOPS');
+    expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, TRUST_PROXY_HOPS: '0' })).not.toContain(
+      'TRUST_PROXY_HOPS',
+    );
+  });
+
+  it('accepts a VPN-sized admin allowlist in production', () => {
+    expect(
+      issuePaths(apiEnvSchema, { ...PROD_API_ENV, ADMIN_IP_ALLOWLIST: '10.0.0.0/8,2001:db8::/32' }),
+    ).not.toContain('ADMIN_IP_ALLOWLIST');
   });
 
   it.each(['DATABASE_URL', 'REDIS_URL'])(

@@ -13,6 +13,7 @@ import {
 } from '../auth/index.js';
 import { ADMIN_CONTROLLERS, createAdminProviders } from '../admin/index.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { LegalController } from '../legal/index.js';
 import {
   COMPLIANCE_CONTROLLERS,
   createComplianceServices,
@@ -68,6 +69,7 @@ export class AppModule {
         ...AUTH_CONTROLLERS,
         ...COMPLIANCE_CONTROLLERS,
         ...ADMIN_CONTROLLERS,
+        LegalController,
         ...(deps.controllers ?? []),
       ],
       providers: [

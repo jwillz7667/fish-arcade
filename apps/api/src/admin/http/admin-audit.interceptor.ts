@@ -19,9 +19,9 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 /**
  * Records every admin write (playbook Step 9): actor, action, target, a PII-masked before/after
  * diff, and IP. Handlers describe the change with `request.adminAudit`; without it, the row
- * still names the route. Failed writes are recorded too, with their error code. Routes whose
- * service audits in the same transaction (`@AuditedInTransaction`) and pre-session routes
- * (`@AdminPublic`, which audit themselves) are skipped.
+ * still names the route. Failed writes are recorded too, with their error code and route
+ * params. Routes whose service audits in the same transaction (`@AuditedInTransaction`) get
+ * only their failures recorded here; pre-session routes (`@AdminPublic`) audit themselves.
  */
 @Injectable()
 export class AdminAuditInterceptor implements NestInterceptor {
@@ -40,15 +40,20 @@ export class AdminAuditInterceptor implements NestInterceptor {
     const handler = context.getHandler();
     const isSkipped =
       SAFE_METHODS.has(request.method) ||
-      this.reflector.get<boolean | undefined>(ADMIN_METADATA.isPublic, handler) === true ||
-      this.reflector.get<boolean | undefined>(ADMIN_METADATA.isAuditedInTransaction, handler) ===
-        true;
+      this.reflector.get<boolean | undefined>(ADMIN_METADATA.isPublic, handler) === true;
     if (isSkipped) return next.handle();
+    // The service writes the success row in its own transaction. A failure rolls that back, so
+    // the failure (a self-approval, a missing permission, the super admin cap) is recorded here.
+    const isAuditedInTransaction =
+      this.reflector.get<boolean | undefined>(ADMIN_METADATA.isAuditedInTransaction, handler) ===
+      true;
 
     const route = `${context.getClass().name}.${handler.name}`;
     return next.handle().pipe(
       concatMap((result: unknown) =>
-        from(this.#record(request, route, undefined).then(() => result)),
+        isAuditedInTransaction
+          ? from([result])
+          : from(this.#record(request, route, undefined).then(() => result)),
       ),
       catchError((error: unknown) =>
         from(
@@ -77,7 +82,7 @@ export class AdminAuditInterceptor implements NestInterceptor {
       diff:
         failureCode === undefined
           ? auditDiff(context?.before, context?.after)
-          : { before: null, after: { error: failureCode } },
+          : { before: null, after: { error: failureCode, params: request.params ?? {} } },
       ip: request.ip,
     });
   }

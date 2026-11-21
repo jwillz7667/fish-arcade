@@ -51,6 +51,15 @@ const VARIANT_KEYS = [
   'totpUri',
   'recoveryCodes',
   'credential',
+  'codeVerifier',
+  'nonce',
+  'x-step-up-code',
+  'mfaCode',
+  'city',
+  'zip',
+  'postalCode',
+  'lat',
+  'longitude',
 ];
 
 describe('isSensitiveKey', () => {
@@ -67,6 +76,9 @@ describe('isSensitiveKey', () => {
     'status',
     'requestId',
     'statusCode',
+    'code',
+    'errorCode',
+    'latencyMs',
     'challengeId',
     'name',
     '',

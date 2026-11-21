@@ -34,10 +34,33 @@ const SENSITIVE_WORDS = new Set([
   'totp',
   'recovery',
   'credential',
+  // Admin OIDC (playbook Step 9): the PKCE verifier and the ID token nonce.
+  'verifier',
+  'nonce',
+  // Location PII from geolocation checks (playbook Step 7).
+  'city',
+  'zip',
+  'postal',
+  'postcode',
+  'lat',
+  'lng',
+  'latitude',
+  'longitude',
 ]);
 
 /** Multi-word keys that are sensitive only as a whole, such as `firstName`. */
-const SENSITIVE_PHRASES = new Set(['firstname', 'lastname', 'fullname', 'legalname']);
+// `code` alone is not sensitive (error codes, status codes), so one-time codes are listed by
+// their full key: the step-up header, MFA and verification codes.
+const SENSITIVE_PHRASES = new Set([
+  'firstname',
+  'lastname',
+  'fullname',
+  'legalname',
+  'stepupcode',
+  'xstepupcode',
+  'mfacode',
+  'verificationcode',
+]);
 
 /** Words that, together with a final `url`, mark a connection string with embedded credentials. */
 const CONNECTION_WORDS = new Set(['database', 'db', 'postgres', 'redis', 'dsn']);

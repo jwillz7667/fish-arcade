@@ -18,6 +18,8 @@ describe('migrations on an empty database', () => {
       ['player_auth', true],
       ['kyc_webhooks_and_holds', true],
       ['admin_auth', true],
+      ['admin_oidc_subject', true],
+      ['kyc_sanctions_clearance', true],
     ]);
   });
 

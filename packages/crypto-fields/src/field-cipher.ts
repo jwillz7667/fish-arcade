@@ -2,7 +2,11 @@ import { openAesGcm, sealAesGcm } from './aes-gcm.js';
 import type { DataKey, DataKeyProvider } from './data-key-provider.js';
 import { decodeEnvelope, encodeEnvelope } from './envelope.js';
 
-/** Where an encrypted value lives. Bound into the ciphertext so values cannot be swapped. */
+/**
+ * Where an encrypted value lives. Bound into the ciphertext as additional data, so a value
+ * cannot be moved to another column. It is not bound to a row: two rows' values in the same
+ * column can be swapped by someone with write access, which only the API role has.
+ */
 export interface FieldContext {
   readonly table: string;
   readonly column: string;

@@ -73,10 +73,14 @@ describe('HibpBreachedPasswordChecker', () => {
 });
 
 describe('TurnstileVerifier', () => {
-  it('posts the secret, token, and IP to siteverify and accepts success', async () => {
-    const fetchFn = respond({ success: true, action: 'signup' });
+  const live = { expectedHostnames: ['play.example.com'], isTestSecret: false };
+  const verifier = (fetchFn: typeof fetch, options = live) =>
+    new TurnstileVerifier('secret-1', options, fetchFn);
 
-    await new TurnstileVerifier('secret-1', fetchFn).verify('token-1', '203.0.113.9');
+  it('posts the secret, token, and IP to siteverify and accepts success', async () => {
+    const fetchFn = respond({ success: true, action: 'signup', hostname: 'play.example.com' });
+
+    await verifier(fetchFn).verify('token-1', '203.0.113.9');
 
     const body = fetchFn.mock.calls[0]?.[1]?.body;
     expect(body instanceof URLSearchParams ? Object.fromEntries(body) : body).toMatchObject({
@@ -88,32 +92,35 @@ describe('TurnstileVerifier', () => {
 
   it.each([
     [{ success: false, 'error-codes': ['timeout-or-duplicate'] }],
-    [{ success: true, action: 'login' }],
+    [{ success: true, action: 'login', hostname: 'play.example.com' }],
+    [{ success: true, hostname: 'play.example.com' }],
+    [{ success: true, action: 'signup', hostname: 'evil.example.net' }],
+    [{ success: true, action: 'signup' }],
   ])('rejects %j', async (reply) => {
-    const verify = new TurnstileVerifier('secret', respond(reply)).verify('token', null);
-
-    await expect(verify).rejects.toMatchObject({
+    await expect(verifier(respond(reply)).verify('token', null)).rejects.toMatchObject({
       code: ErrorCode.BOT_CHECK_FAILED,
       httpStatus: 403,
     });
   });
 
-  it('accepts test-mode replies with no action', async () => {
+  it('accepts test-secret replies, which carry no action or real hostname', async () => {
+    const testMode = { expectedHostnames: ['play.example.com'], isTestSecret: true };
+
     await expect(
-      new TurnstileVerifier('secret', respond({ success: true })).verify('t', null),
+      verifier(respond({ success: true, hostname: 'example.com' }), testMode).verify('t', null),
     ).resolves.toBeUndefined();
   });
 
   it('fails closed on network errors and malformed replies', async () => {
-    await expect(new TurnstileVerifier('s', failing()).verify('t', null)).rejects.toBeInstanceOf(
+    await expect(verifier(failing()).verify('t', null)).rejects.toBeInstanceOf(
       DependencyUnavailableError,
     );
-    await expect(
-      new TurnstileVerifier('s', respond({ ok: 1 })).verify('t', null),
-    ).rejects.toBeInstanceOf(DependencyUnavailableError);
-    await expect(
-      new TurnstileVerifier('s', respond('', 500)).verify('t', null),
-    ).rejects.toBeInstanceOf(DependencyUnavailableError);
+    await expect(verifier(respond({ ok: 1 })).verify('t', null)).rejects.toBeInstanceOf(
+      DependencyUnavailableError,
+    );
+    await expect(verifier(respond('', 500)).verify('t', null)).rejects.toBeInstanceOf(
+      DependencyUnavailableError,
+    );
   });
 });
 

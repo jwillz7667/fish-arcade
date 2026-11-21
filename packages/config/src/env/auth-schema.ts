@@ -10,6 +10,15 @@ const TURNSTILE_TEST_SECRETS = new Set([
   '3x0000000000000000000000000000000AA',
 ]);
 
+/**
+ * @param secret A Turnstile secret key.
+ * @returns True for one of Cloudflare's test secrets, whose replies carry no real action or
+ *   hostname. They are rejected in production.
+ */
+export function isTurnstileTestSecret(secret: string): boolean {
+  return TURNSTILE_TEST_SECRETS.has(secret);
+}
+
 const booleanFlag = z
   .enum(['true', 'false'])
   .default('true')
@@ -53,4 +62,6 @@ export const AUTH_DEV_ONLY_RULES = {
   SMS_PROVIDER: (value: unknown) => value === 'mailpit',
   WEBAUTHN_ORIGINS: (value: unknown) =>
     Array.isArray(value) && value.some((origin) => String(origin).startsWith('http:')),
+  // Turning the breached-password check off is for offline development only.
+  HIBP_ENABLED: (value: unknown) => value === false,
 };

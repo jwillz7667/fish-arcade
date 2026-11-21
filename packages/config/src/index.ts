@@ -17,6 +17,7 @@ export {
   redisUrlSchema,
   type DevOnlyRules,
 } from './env/define-env-schema.js';
+export { isTurnstileTestSecret } from './env/auth-schema.js';
 export { isPlaintextPostgresUrl, isPlaintextRedisUrl } from './env/dev-only-rules.js';
 export {
   formatConfigError,

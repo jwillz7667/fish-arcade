@@ -11,6 +11,7 @@ import {
   signupPost,
   PROFILE,
   signUp,
+  TEST_DOCUMENT_IDS,
   uniqueEmail,
   uniquePhone,
   verifiedSignupTicket,
@@ -356,5 +357,53 @@ describe('resend limits and unknown challenges', () => {
     });
 
     expect(response.statusCode).toBe(401);
+  });
+});
+
+describe('legal documents at signup (spec §5.1)', () => {
+  it('publishes the documents in force', async () => {
+    const response = await t.app.inject({ method: 'GET', url: '/v1/legal/current' });
+
+    expect(
+      response
+        .json<{ documents: { id: string }[] }>()
+        .documents.map((doc) => doc.id)
+        .sort(),
+    ).toEqual([...TEST_DOCUMENT_IDS].sort());
+  });
+
+  it('records the accepted version, time, and IP for each document', async () => {
+    const session = await signUp(t);
+
+    const { rows } = await db.query<{ rules_version_id: string; ip: string }>(
+      'SELECT rules_version_id, host(ip) AS ip FROM consents WHERE user_id = $1',
+      [session.userId],
+    );
+
+    expect(rows.map((row) => row.rules_version_id).sort()).toEqual([...TEST_DOCUMENT_IDS].sort());
+    expect(rows.every((row) => row.ip.length > 0)).toBe(true);
+  });
+
+  it('refuses signup that accepts an incomplete or outdated set, and creates no account', async () => {
+    const email = uniqueEmail();
+    const signupTicket = await verifiedSignupTicket(t, email);
+
+    const response = await signupPost(t, '/v1/auth/signup/complete', {
+      signupTicket,
+      profile: PROFILE,
+      credential: { type: 'password', password: GOOD_PASSWORD },
+      acceptedDocumentIds: TEST_DOCUMENT_IDS.slice(0, 2),
+    });
+    const retry = await signupPost(t, '/v1/auth/signup/complete', {
+      signupTicket,
+      profile: PROFILE,
+      credential: { type: 'password', password: GOOD_PASSWORD },
+    });
+
+    expect([response.statusCode, response.json<ErrorBody>().error.code]).toEqual([
+      400,
+      'VALIDATION_FAILED',
+    ]);
+    expect(retry.statusCode).toBe(201);
   });
 });

@@ -15,7 +15,10 @@ export const PERMISSIONS = [
   'players.read_pii',
   'players.write',
   'balances.adjust_gc',
-  'balances.adjust_sc',
+  // Spec §13.2: every SC adjustment needs Compliance and Finance. Compliance requests and
+  // Finance approves, so one role can never complete it alone.
+  'balances.adjust_sc.request',
+  'balances.adjust_sc.approve',
   'kyc.review',
   'aml.read',
   'aml.write',
@@ -77,7 +80,7 @@ function permissionsOf(role: AdminRole): readonly Permission[] {
         'jurisdictions.read',
         'jurisdictions.write',
         'exclusions.write',
-        'balances.adjust_sc',
+        'balances.adjust_sc.request',
         'approvals.read',
         'audit.read',
       ];
@@ -87,7 +90,7 @@ function permissionsOf(role: AdminRole): readonly Permission[] {
         'redemptions.approve',
         'reconciliation.read',
         'reports.read',
-        'balances.adjust_sc',
+        'balances.adjust_sc.approve',
         'approvals.read',
       ];
     case 'game_ops':

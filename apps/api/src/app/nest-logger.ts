@@ -1,8 +1,16 @@
 import type { LoggerService } from '@nestjs/common';
 import type { Logger } from '@reef/logger';
 
-function text(message: unknown): string {
-  return typeof message === 'string' ? message : JSON.stringify(message);
+/**
+ * Nest sometimes logs objects. They go in a field, where the logger's redaction sees them,
+ * never stringified into the message, which is not inspected.
+ */
+function entry(
+  message: unknown,
+  fields: Record<string, unknown>,
+): [Record<string, unknown>, string] {
+  if (typeof message === 'string') return [fields, message];
+  return [{ ...fields, detail: message }, 'nest framework message'];
 }
 
 /** Routes NestJS framework logs into the platform's redacting pino logger. */
@@ -11,26 +19,26 @@ export class NestPinoLogger implements LoggerService {
 
   /** @param message Framework message. @param context Nest context name. */
   log(message: unknown, context?: string): void {
-    this.logger.info({ context }, text(message));
+    this.logger.info(...entry(message, { context }));
   }
 
   /** @param message Framework message. @param stack Stack trace. @param context Nest context name. */
   error(message: unknown, stack?: string, context?: string): void {
-    this.logger.error({ context, stack }, text(message));
+    this.logger.error(...entry(message, { context, stack }));
   }
 
   /** @param message Framework message. @param context Nest context name. */
   warn(message: unknown, context?: string): void {
-    this.logger.warn({ context }, text(message));
+    this.logger.warn(...entry(message, { context }));
   }
 
   /** @param message Framework message. @param context Nest context name. */
   debug(message: unknown, context?: string): void {
-    this.logger.debug({ context }, text(message));
+    this.logger.debug(...entry(message, { context }));
   }
 
   /** @param message Framework message. @param context Nest context name. */
   verbose(message: unknown, context?: string): void {
-    this.logger.trace({ context }, text(message));
+    this.logger.trace(...entry(message, { context }));
   }
 }

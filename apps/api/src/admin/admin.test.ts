@@ -16,7 +16,7 @@ describe('role permissions (spec §13.1)', () => {
     expect([
       support.has('players.read'),
       support.has('players.read_pii'),
-      support.has('balances.adjust_sc'),
+      support.has('balances.adjust_sc.request'),
     ]).toEqual([true, false, false]);
   });
 
@@ -26,10 +26,13 @@ describe('role permissions (spec §13.1)', () => {
       permissionsFor(['finance']),
     ];
 
-    expect([compliance.has('balances.adjust_sc'), finance.has('balances.adjust_sc')]).toEqual([
-      true,
-      true,
-    ]);
+    // Spec §13.2: Compliance requests and Finance approves; neither can do both.
+    expect([
+      compliance.has('balances.adjust_sc.request'),
+      compliance.has('balances.adjust_sc.approve'),
+      finance.has('balances.adjust_sc.request'),
+      finance.has('balances.adjust_sc.approve'),
+    ]).toEqual([true, false, false, true]);
     expect([compliance.has('jurisdictions.write'), finance.has('jurisdictions.write')]).toEqual([
       true,
       false,

@@ -1,4 +1,4 @@
-import type { ApiEnv } from '@reef/config';
+import { isTurnstileTestSecret, type ApiEnv } from '@reef/config';
 import { createFieldEncryption, type FieldEncryption } from '@reef/crypto-fields';
 
 import { TurnstileVerifier, type BotVerifier } from './bot/turnstile-verifier.js';
@@ -39,7 +39,11 @@ export async function createAuthDependencies(env: ApiEnv): Promise<AuthDependenc
     keys,
     encryption,
     senders: { email: new MailpitEmailSender(mailpit), sms: new MailpitSmsSender(mailpit) },
-    botVerifier: new TurnstileVerifier(env.TURNSTILE_SECRET_KEY),
+    botVerifier: new TurnstileVerifier(env.TURNSTILE_SECRET_KEY, {
+      // The signup widget runs on the player web app, the same origins passkeys are bound to.
+      expectedHostnames: env.WEBAUTHN_ORIGINS.map((origin) => new URL(origin).hostname),
+      isTestSecret: isTurnstileTestSecret(env.TURNSTILE_SECRET_KEY),
+    }),
     breachChecker: env.HIBP_ENABLED
       ? new HibpBreachedPasswordChecker()
       : new DisabledBreachedPasswordChecker(),

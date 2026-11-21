@@ -265,6 +265,29 @@ describe('idempotent money routes', () => {
     ]);
   });
 
+  it('holds the key after a failure that may follow a commit, instead of re-running at once', async () => {
+    const key = `key-${randomUUID()}`;
+    const before = calls.echo;
+    const auth = await main.bearerFor(userOne);
+    const call = () =>
+      main.app.inject({
+        method: 'POST',
+        url: '/v1/test/echo-crash',
+        headers: {
+          'content-type': 'application/json',
+          'idempotency-key': key,
+          authorization: auth,
+        },
+        payload: '{}',
+      });
+
+    const first = await call();
+    const retry = await call();
+
+    expect([first.statusCode, retry.statusCode]).toEqual([500, 409]);
+    expect(calls.echo - before).toBe(1);
+  });
+
   it('lets the client retry after the handler failed validation', async () => {
     const key = `key-${randomUUID()}`;
     const bad = await post(key, { amount: 'x' });
