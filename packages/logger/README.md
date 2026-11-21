@@ -22,7 +22,7 @@ context.run({ requestId }, () => logger.info({ userId }, 'login succeeded'));
 
 1. The last word is `secret` or `key`: redacted (`clientSecret`, `API_KEY`, `x-api-key`, `idempotencyKey`).
 2. The last word is `id` or `ids`: kept, because record IDs are what we log (`tokenId`, `payoutAddressId`).
-3. Any word is sensitive (`password`, `token`, `authorization`, `cookie`, `otp`, `secret`, `apikey`, `ssn`, `dob`, `birth`, `address`, `email`, `phone`, `xpub`, `xprv`, `descriptor`, `seed`, `mnemonic`), or the whole key is a sensitive phrase (`firstName`, `lastName`, `fullName`, `legalName`, `DATABASE_URL`, `REDIS_URL`): redacted.
+3. Any word is sensitive (`password`, `token`, `authorization`, `cookie`, `otp`, `secret`, `apikey`, `ssn`, `dob`, `birth`, `address`, `email`, `phone`, `xpub`, `xprv`, `descriptor`, `seed`, `mnemonic`), or the whole key is a sensitive phrase (`firstName`, `lastName`, `fullName`, `legalName`), or the key ends in `url` and names a database or Redis (`DATABASE_URL`, `DATABASE_ADMIN_URL`, `REDIS_URL`): redacted.
 
 This applies to log payloads, root and child bindings, and fields on errors and their causes. Bigints are written as strings. **Message strings are not inspected, so never interpolate data into them.**
 

@@ -26,3 +26,6 @@ data/
 # Logs and OS noise
 *.log
 .DS_Store
+
+# Generated Prisma client (pnpm install regenerates it)
+packages/db/src/generated/

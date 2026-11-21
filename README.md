@@ -18,12 +18,19 @@ Fish arcade gaming platform: multiplayer fish tables, slots, keno, a dual-curren
 pnpm i
 cp .env.example .env   # then replace the placeholder passwords
 pnpm services:up       # Postgres 16, Redis 7, Mailpit, MinIO on 127.0.0.1
+pnpm keys:dev          # dev field-encryption keys into .keys/dev (gitignored)
+pnpm db:roles          # reef_migrator, reef_app, reef_readonly (dev and CI only)
+pnpm db:migrate        # prisma migrate deploy as reef_migrator
+pnpm db:seed           # admin roles and fail-closed system flags; refuses production
 ```
 
 ## Test
 
 ```sh
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
+
+# Integration tests create and drop their own database on any Postgres 16 superuser connection
+TEST_DATABASE_ADMIN_URL=postgresql://reef:change-me@127.0.0.1:5432/postgres pnpm test:integration
 ```
 
 ## Layout

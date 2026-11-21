@@ -30,15 +30,10 @@ const SENSITIVE_WORDS = new Set([
 ]);
 
 /** Multi-word keys that are sensitive only as a whole, such as `firstName`. */
-const SENSITIVE_PHRASES = new Set([
-  'firstname',
-  'lastname',
-  'fullname',
-  'legalname',
-  // Connection URLs embed credentials.
-  'databaseurl',
-  'redisurl',
-]);
+const SENSITIVE_PHRASES = new Set(['firstname', 'lastname', 'fullname', 'legalname']);
+
+/** Words that, together with a final `url`, mark a connection string with embedded credentials. */
+const CONNECTION_WORDS = new Set(['database', 'db', 'postgres', 'redis', 'dsn']);
 
 /** Trailing words that are always sensitive: "any key ending in Secret or Key". */
 const SENSITIVE_SUFFIXES = new Set(['secret', 'key']);
@@ -72,6 +67,7 @@ export function isSensitiveKey(key: string): boolean {
   if (last === undefined) return false;
   if (SENSITIVE_SUFFIXES.has(last)) return true;
   if (IDENTIFIER_SUFFIXES.has(last)) return false;
+  if (last === 'url' && words.some((word) => CONNECTION_WORDS.has(word))) return true;
   return SENSITIVE_PHRASES.has(words.join('')) || words.some((word) => SENSITIVE_WORDS.has(word));
 }
 

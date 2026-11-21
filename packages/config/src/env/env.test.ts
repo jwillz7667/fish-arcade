@@ -13,6 +13,9 @@ const DEV_API_ENV: EnvSource = {
   API_PORT: '4000',
   DATABASE_URL: `postgresql://reef:${SECRET}@127.0.0.1:5432/reef`,
   REDIS_URL: `redis://:${SECRET}@127.0.0.1:6379`,
+  FIELD_ENCRYPTION_PROVIDER: 'local',
+  FIELD_ENCRYPTION_LOCAL_KEY_FILE: '.keys/dev/field-master.key',
+  BLIND_INDEX_KEY_FILE: '.keys/dev/blind-index.key',
 };
 
 const PROD_API_ENV: EnvSource = {
@@ -20,6 +23,9 @@ const PROD_API_ENV: EnvSource = {
   API_PORT: '4000',
   DATABASE_URL: `postgresql://reef:${SECRET}@db.internal:5432/reef?sslmode=verify-full`,
   REDIS_URL: `rediss://:${SECRET}@cache.internal:6379`,
+  FIELD_ENCRYPTION_PROVIDER: 'kms',
+  FIELD_ENCRYPTION_KMS_KEY_ID: 'alias/reef-fields',
+  BLIND_INDEX_KEY: SECRET,
 };
 
 function captureConfigError(schema: z.ZodType, source: EnvSource): ConfigError | undefined {
@@ -55,6 +61,7 @@ describe('parseEnv', () => {
       'API_PORT',
       'DATABASE_URL',
       'REDIS_URL',
+      'FIELD_ENCRYPTION_PROVIDER',
     ]);
   });
 
@@ -91,6 +98,21 @@ describe('dev-only settings in production', () => {
     const paths = issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value });
 
     expect(paths).toEqual([key]);
+  });
+
+  it('rejects local field-encryption keys in production', () => {
+    const paths = issuePaths(apiEnvSchema, {
+      ...PROD_API_ENV,
+      FIELD_ENCRYPTION_PROVIDER: 'local',
+      FIELD_ENCRYPTION_LOCAL_KEY_FILE: 'master.key',
+      BLIND_INDEX_KEY_FILE: 'index.key',
+    });
+
+    expect(paths.sort()).toEqual([
+      'BLIND_INDEX_KEY_FILE',
+      'FIELD_ENCRYPTION_LOCAL_KEY_FILE',
+      'FIELD_ENCRYPTION_PROVIDER',
+    ]);
   });
 
   it('allows plaintext connections outside production', () => {

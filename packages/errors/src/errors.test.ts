@@ -11,6 +11,7 @@ import {
   ErrorCode,
   ForbiddenError,
   InsufficientFundsError,
+  IntegrityError,
   isDomainError,
   NotFoundError,
   RateLimitedError,
@@ -33,6 +34,7 @@ describe('DomainError subclasses', () => {
       503,
     ],
     [new ConfigError({ issues: [] }), ErrorCode.CONFIG_INVALID, 500],
+    [new IntegrityError(), ErrorCode.INTEGRITY_VIOLATION, 500],
   ])('%s carries its code and status', (error, code, status) => {
     expect({ code: error.code, status: error.httpStatus, name: error.name }).toEqual({
       code,
