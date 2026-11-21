@@ -7,7 +7,12 @@ import {
   redisUrlSchema,
 } from './define-env-schema.js';
 import { AUTH_DEV_ONLY_RULES, AUTH_SHAPE } from './auth-schema.js';
-import { GEO_DEV_ONLY_RULES, GEO_SHAPE } from './compliance-schema.js';
+import {
+  GEO_DEV_ONLY_RULES,
+  GEO_SHAPE,
+  KYC_DEV_ONLY_RULES,
+  KYC_SHAPE,
+} from './compliance-schema.js';
 import { corsOriginsSchema } from './cors-origins.js';
 import { isPlaintextPostgresUrl, isPlaintextRedisUrl } from './dev-only-rules.js';
 
@@ -53,12 +58,14 @@ export const apiEnvSchema = defineEnvSchema(
     ...FIELD_ENCRYPTION_SHAPE,
     ...AUTH_SHAPE,
     ...GEO_SHAPE,
+    ...KYC_SHAPE,
   },
   {
     ...TLS_RULES,
     ...FIELD_ENCRYPTION_RULES,
     ...AUTH_DEV_ONLY_RULES,
     ...GEO_DEV_ONLY_RULES,
+    ...KYC_DEV_ONLY_RULES,
     // Plain-http origins are for local development only.
     CORS_ORIGINS: (value: unknown) =>
       Array.isArray(value) && value.some((origin) => String(origin).startsWith('http:')),

@@ -6,7 +6,7 @@ import pg from 'pg';
 
 import { createApp } from './app/create-app.js';
 import { createAuthDependencies } from './auth/index.js';
-import { createGeoProvider } from './compliance/index.js';
+import { createGeoProvider, createKycProvider } from './compliance/index.js';
 
 const env = loadEnv(apiEnvSchema);
 const requestContext = new RequestContext();
@@ -32,6 +32,7 @@ const app = await createApp({
   requestContext,
   auth,
   geoProvider: createGeoProvider(env),
+  kycProvider: createKycProvider(env, redis),
 });
 
 let isShuttingDown = false;

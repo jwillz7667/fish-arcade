@@ -15,7 +15,13 @@ import { createApp } from '../../src/app/create-app.js';
 import { LOGGER } from '../../src/app/tokens.js';
 import { Public } from '../../src/auth/guards/public.decorator.js';
 import { RequireStepUp } from '../../src/auth/step-up/step-up.guard.js';
-import { DevStubGeoProvider, RequireJurisdiction } from '../../src/compliance/index.js';
+import {
+  DevStubGeoProvider,
+  DevStubKycProvider,
+  RequireJurisdiction,
+  RequireKyc,
+  RequireRedemptionEligibility,
+} from '../../src/compliance/index.js';
 import { AccessTokenService } from '../../src/auth/tokens/access-token-service.js';
 import { MoneyRoute } from '../../src/http/idempotency/money-route.decorator.js';
 import { RateLimit } from '../../src/http/rate-limit/rate-limit.decorator.js';
@@ -89,6 +95,19 @@ export class TestController {
     return { ok: true };
   }
 
+  /** Stand-ins for KYC-gated routes of later steps. */
+  @Post('kyc-light')
+  @RequireKyc('light')
+  kycLight(): { ok: true } {
+    return { ok: true };
+  }
+
+  @Post('redemption')
+  @RequireRedemptionEligibility()
+  redemption(): { ok: true } {
+    return { ok: true };
+  }
+
   /** Stand-ins for the purchase, SC play, and redemption routes of later steps. */
   @Post('purchase')
   @RequireJurisdiction('purchase')
@@ -122,6 +141,8 @@ export interface TestApp {
   readonly logs: Record<string, unknown>[];
   readonly redis: Redis;
   readonly auth: TestAuth;
+  /** The dev KYC vendor, for scripting outcomes and signed webhooks. */
+  readonly kyc: DevStubKycProvider;
   /** An `Authorization` header for a fresh access token, for routes that only need a principal. */
   bearerFor(userId: string): Promise<string>;
 }
@@ -146,6 +167,8 @@ export function testEnv(overrides: EnvSource = {}): EnvSource {
     EMAIL_PROVIDER: 'mailpit',
     SMS_PROVIDER: 'mailpit',
     GEO_PROVIDER: 'dev_stub',
+    KYC_PROVIDER: 'dev_stub',
+    KYC_WEBHOOK_SECRET: 'test-kyc-webhook-secret-0123456789abcdef',
     // Short, so the provider-timeout test finishes quickly.
     GEO_PROVIDER_TIMEOUT_MS: '300',
     ...overrides,
@@ -186,6 +209,7 @@ export async function buildTestApp(
   // Unreachable-Redis tests expect connection errors; readiness and the limiter report them.
   redis.on('error', () => undefined);
   const pool = new pg.Pool({ connectionString: parsed.DATABASE_URL, max: 5 });
+  const kyc = new DevStubKycProvider(redis, parsed.KYC_WEBHOOK_SECRET);
   const app = await createApp({
     env: parsed,
     pool,
@@ -194,6 +218,7 @@ export async function buildTestApp(
     requestContext,
     auth: auth.deps,
     geoProvider: new DevStubGeoProvider(),
+    kycProvider: kyc,
     controllers: [TestController],
   });
   const accessTokens = app.get(AccessTokenService);
@@ -202,6 +227,7 @@ export async function buildTestApp(
     logs,
     redis,
     auth,
+    kyc,
     bearerFor: async (userId) => {
       const { token } = await accessTokens.sign({
         userId,

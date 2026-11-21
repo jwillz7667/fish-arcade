@@ -16,6 +16,7 @@ describe('migrations on an empty database', () => {
       ['ledger_invariants', true],
       ['role_grants', true],
       ['player_auth', true],
+      ['kyc_webhooks_and_holds', true],
     ]);
   });
 
@@ -84,6 +85,8 @@ describe('migrations on an empty database', () => {
         'user_mfa',
         'recovery_codes',
         'passkeys',
+        'processed_webhooks',
+        'account_holds',
       ].sort(),
     );
   });
@@ -118,6 +121,20 @@ describe('migrations on an empty database', () => {
         (error: unknown) => (error as { code?: string }).code,
       ),
     );
+
+    expect(code).toBe('42501');
+  });
+
+  it('keeps processed webhook records append-only for reef_app', async () => {
+    const code = await withClient('reef_app', async (client) => {
+      await client.query(
+        "INSERT INTO processed_webhooks (provider, event_id) VALUES ('test', 'evt-append-only')",
+      );
+      return client.query("DELETE FROM processed_webhooks WHERE event_id = 'evt-append-only'").then(
+        () => undefined,
+        (error: unknown) => (error as { code?: string }).code,
+      );
+    });
 
     expect(code).toBe('42501');
   });

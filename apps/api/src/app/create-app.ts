@@ -58,6 +58,8 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
     {
       logger: new NestPinoLogger(logger),
       abortOnError: false,
+      // Keeps the exact request bytes for webhook signature checks (`request.rawBody`).
+      rawBody: true,
     },
   );
 

@@ -53,6 +53,8 @@ export default defineConfig({
         'apps/api/src/compliance/**/*-service.ts',
         'apps/api/src/compliance/**/*.controller.ts',
         'apps/api/src/compliance/**/*.guard.ts',
+        'apps/api/src/compliance/holds/**',
+        'apps/api/src/compliance/kyc/dev-stub-kyc-provider.ts',
         'apps/api/src/shared/**',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],

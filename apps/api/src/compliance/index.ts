@@ -2,9 +2,13 @@ export {
   COMPLIANCE_CONTROLLERS,
   createComplianceServices,
   createGeoProvider,
+  createKycProvider,
   type ComplianceServices,
 } from './compliance-providers.js';
 export { DevStubGeoProvider } from './geo/dev-stub-provider.js';
+export { DevStubKycProvider, type ScriptedKycOutcome } from './kyc/dev-stub-kyc-provider.js';
+export { RequireKyc, RequireRedemptionEligibility } from './kyc/kyc.guard.js';
+export type { KycProvider } from './kyc/kyc-provider.js';
 export type { GeoProvider } from './geo/geo-provider.js';
 export { RequireJurisdiction, type RequestJurisdiction } from './geo/jurisdiction.guard.js';
 export {
