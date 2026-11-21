@@ -134,3 +134,14 @@ export class ConfigError extends DomainError {
     this.issues = options.issues;
   }
 }
+
+/**
+ * Stored data failed an integrity check, such as a ciphertext whose authentication tag does
+ * not match. Never caused by client input. HTTP 500.
+ */
+export class IntegrityError extends DomainError {
+  /** @param options Message overrides and cause. */
+  constructor(options: DomainErrorOptions = {}) {
+    super({ ...options, code: ErrorCode.INTEGRITY_VIOLATION, httpStatus: 500 });
+  }
+}

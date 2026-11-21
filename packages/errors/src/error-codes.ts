@@ -15,6 +15,7 @@ export const ErrorCode = {
   COMPLIANCE_BLOCKED: 'COMPLIANCE_BLOCKED',
   INSUFFICIENT_FUNDS: 'INSUFFICIENT_FUNDS',
   DEPENDENCY_UNAVAILABLE: 'DEPENDENCY_UNAVAILABLE',
+  INTEGRITY_VIOLATION: 'INTEGRITY_VIOLATION',
   INTERNAL: 'INTERNAL',
 } as const;
 
@@ -35,5 +36,6 @@ export const DEFAULT_SAFE_MESSAGES: Readonly<Record<ErrorCode, string>> = {
   COMPLIANCE_BLOCKED: 'This action is not available for your account or location.',
   INSUFFICIENT_FUNDS: 'Insufficient balance.',
   DEPENDENCY_UNAVAILABLE: 'The service is temporarily unavailable. Try again later.',
+  INTEGRITY_VIOLATION: 'Something went wrong.',
   INTERNAL: 'Something went wrong.',
 };

@@ -8,6 +8,7 @@ export {
   DependencyUnavailableError,
   ForbiddenError,
   InsufficientFundsError,
+  IntegrityError,
   NotFoundError,
   RateLimitedError,
   ValidationError,
