@@ -17,6 +17,7 @@ describe('migrations on an empty database', () => {
       ['role_grants', true],
       ['player_auth', true],
       ['kyc_webhooks_and_holds', true],
+      ['admin_auth', true],
     ]);
   });
 
@@ -87,6 +88,8 @@ describe('migrations on an empty database', () => {
         'passkeys',
         'processed_webhooks',
         'account_holds',
+        'admin_mfa',
+        'admin_sessions',
       ].sort(),
     );
   });
