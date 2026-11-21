@@ -21,7 +21,9 @@ export interface ValidationIssue {
 
 /** Codes a {@link ValidationError} may carry. */
 export type ValidationErrorCode =
-  typeof ErrorCode.VALIDATION_FAILED | typeof ErrorCode.INVALID_AMOUNT;
+  | typeof ErrorCode.VALIDATION_FAILED
+  | typeof ErrorCode.INVALID_AMOUNT
+  | typeof ErrorCode.INVALID_ADDRESS;
 
 /** Input was malformed or out of range. HTTP 400. */
 export class ValidationError extends DomainError {

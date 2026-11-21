@@ -1,0 +1,107 @@
+# Regtest Bitcoin stack for development and tests only (playbook Step 10): bitcoind, NBXplorer,
+# and BTCPay Server. Staging uses signet; nothing here ever touches mainnet. Ports bind to
+# 127.0.0.1 only. Credentials come from .env; compose refuses to start when one is missing.
+# Images and settings follow BTCPay's own docker deployment (btcpayserver-docker fragments).
+# Images are pinned by digest; Renovate keeps the digests current.
+name: reef-btc
+
+services:
+  bitcoind:
+    image: btcpayserver/bitcoin:32.1@sha256:71d1fd5a89dde910094c2f0532366ccbfa380c0684347465580204ca312f6bec
+    environment:
+      BITCOIN_NETWORK: regtest
+      BITCOIN_WALLETDIR: /walletdata
+      # Read by the healthcheck's bitcoin-cli; bitcoind itself reads BITCOIN_EXTRA_ARGS.
+      BTC_RPC_USER: ${BTC_RPC_USER:?set BTC_RPC_USER in .env}
+      BTC_RPC_PASSWORD: ${BTC_RPC_PASSWORD:?set BTC_RPC_PASSWORD in .env}
+      BITCOIN_EXTRA_ARGS: |
+        rpcuser=${BTC_RPC_USER}
+        rpcpassword=${BTC_RPC_PASSWORD}
+        rpcport=43782
+        rpcbind=0.0.0.0:43782
+        rpcallowip=0.0.0.0/0
+        port=39388
+        whitelist=0.0.0.0/0
+        fallbackfee=0.0002
+        txindex=1
+    ports:
+      - '127.0.0.1:43782:43782'
+    volumes:
+      - bitcoind-data:/data
+      - bitcoind-wallets:/walletdata
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'bitcoin-cli -regtest -rpcport=43782 -rpcuser="$$BTC_RPC_USER" -rpcpassword="$$BTC_RPC_PASSWORD" getblockchaininfo',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  postgres:
+    image: postgres:16.15-alpine3.23@sha256:8dc5ce2495b2aeafbf033e4be590764f611248e9eb8495b5202170a6afcb64a4
+    environment:
+      POSTGRES_PASSWORD: ${BTCPAY_POSTGRES_PASSWORD:?set BTCPAY_POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nbxplorer:
+    image: nicolasdorier/nbxplorer:2.6.23@sha256:e182fbd62c22ac81a014e99518fbb4bdffb78c94f9a3fb40dc7d50146fe61caa
+    environment:
+      NBXPLORER_NETWORK: regtest
+      NBXPLORER_CHAINS: btc
+      NBXPLORER_BIND: 0.0.0.0:32838
+      NBXPLORER_BTCRPCURL: http://bitcoind:43782/
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+      NBXPLORER_BTCRPCUSER: ${BTC_RPC_USER}
+      NBXPLORER_BTCRPCPASSWORD: ${BTC_RPC_PASSWORD}
+      NBXPLORER_POSTGRES: User ID=postgres;Password=${BTCPAY_POSTGRES_PASSWORD};Host=postgres;Port=5432;Database=nbxplorer
+      # Reachable only on this compose network, by BTCPay; the port is not published.
+      NBXPLORER_NOAUTH: 1
+      NBXPLORER_MINGAPSIZE: 5
+      NBXPLORER_MAXGAPSIZE: 10
+    volumes:
+      - nbxplorer-data:/datadir
+    depends_on:
+      bitcoind:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  btcpayserver:
+    image: btcpayserver/btcpayserver:2.4.7@sha256:313b6178d8566784b8ec1811b80836df9157b9ee821098785bb0853ed1ef9df0
+    environment:
+      BTCPAY_NETWORK: regtest
+      BTCPAY_CHAINS: btc
+      BTCPAY_BIND: 0.0.0.0:49392
+      BTCPAY_ROOTPATH: /
+      BTCPAY_BTCEXPLORERURL: http://nbxplorer:32838/
+      BTCPAY_POSTGRES: User ID=postgres;Password=${BTCPAY_POSTGRES_PASSWORD};Host=postgres;Port=5432;Database=btcpayserver
+      BTCPAY_EXPLORERPOSTGRES: User ID=postgres;Password=${BTCPAY_POSTGRES_PASSWORD};Host=postgres;Port=5432;Database=nbxplorer
+      # BTCPay blocks webhooks to private addresses (SSRF protection). Only the host, where the
+      # API and the test receiver listen, is let through; the protection stays on otherwise.
+      BTCPAY_SSRFEXCEPTIONS: host.docker.internal
+    ports:
+      - '127.0.0.1:14142:49392'
+    # Webhooks go to the API on the host (http://host.docker.internal:4000).
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - btcpay-data:/datadir
+      - btcpay-plugins:/root/.btcpayserver/Plugins
+    depends_on:
+      - nbxplorer
+
+volumes:
+  bitcoind-data:
+  bitcoind-wallets:
+  postgres-data:
+  nbxplorer-data:
+  btcpay-data:
+  btcpay-plugins:

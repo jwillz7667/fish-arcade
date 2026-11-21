@@ -22,7 +22,13 @@
     "db:roles": "pnpm --filter @reef/db db:roles",
     "db:migrate": "pnpm --filter @reef/db db:migrate",
     "db:seed": "pnpm --filter @reef/db db:seed",
-    "keys:dev": "pnpm --filter @reef/crypto-fields keys:dev && pnpm --filter @reef/api keys:dev"
+    "keys:dev": "pnpm --filter @reef/crypto-fields keys:dev && pnpm --filter @reef/api keys:dev",
+    "btc:up": "docker compose -f docker-compose.btc.yml --env-file .env up -d --wait && pnpm --filter @reef/bitcoin btc:bootstrap",
+    "btc:down": "docker compose -f docker-compose.btc.yml --env-file .env down",
+    "btc:reset": "docker compose -f docker-compose.btc.yml --env-file .env down -v && rm -rf .keys/regtest",
+    "btc:mine": "pnpm --filter @reef/bitcoin btc:mine",
+    "btc:fund": "pnpm --filter @reef/bitcoin btc:fund",
+    "test:btc": "vitest run --config packages/bitcoin/vitest.btc.config.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

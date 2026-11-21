@@ -10,6 +10,7 @@ const SECRET = 'hunter2-do-not-print';
 
 const DEV_API_ENV: EnvSource = {
   NODE_ENV: 'development',
+  BITCOIN_NETWORK: 'regtest',
   API_PORT: '4000',
   DATABASE_URL: `postgresql://reef:${SECRET}@127.0.0.1:5432/reef`,
   REDIS_URL: `redis://:${SECRET}@127.0.0.1:6379`,
@@ -34,6 +35,7 @@ const DEV_API_ENV: EnvSource = {
 };
 
 const PROD_API_ENV: EnvSource = {
+  BITCOIN_NETWORK: 'mainnet',
   NODE_ENV: 'production',
   API_PORT: '4000',
   DATABASE_URL: `postgresql://reef:${SECRET}@db.internal:5432/reef?sslmode=verify-full`,
@@ -129,6 +131,7 @@ describe('parseEnv', () => {
       'ADMIN_LOGIN_MODE',
       'ADMIN_ALLOWED_EMAIL_DOMAINS',
       'ADMIN_WEB_ORIGIN',
+      'BITCOIN_NETWORK',
     ]);
   });
 
@@ -273,6 +276,7 @@ describe('dev-only settings in production', () => {
     ['ADMIN_IP_ALLOWLIST', '2000::/3'],
     ['KYC_WEBHOOK_SECRET', 'change-me-to-at-least-32-random-characters'],
     ['HIBP_ENABLED', 'false'],
+    ['BITCOIN_NETWORK', 'regtest'],
   ])('rejects the dev-only auth setting %s in production', (key, value) => {
     expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value })).toContain(key);
   });
@@ -286,6 +290,18 @@ describe('dev-only settings in production', () => {
     expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, TRUST_PROXY_HOPS: '0' })).not.toContain(
       'TRUST_PROXY_HOPS',
     );
+  });
+
+  it('accepts signet in production, for staging', () => {
+    expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, BITCOIN_NETWORK: 'signet' })).not.toContain(
+      'BITCOIN_NETWORK',
+    );
+  });
+
+  it('rejects an unknown Bitcoin network', () => {
+    expect(issuePaths(apiEnvSchema, { ...DEV_API_ENV, BITCOIN_NETWORK: 'testnet3' })).toEqual([
+      'BITCOIN_NETWORK',
+    ]);
   });
 
   it('accepts a VPN-sized admin allowlist in production', () => {

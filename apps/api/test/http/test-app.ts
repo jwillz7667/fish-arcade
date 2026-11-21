@@ -212,6 +212,7 @@ export function testEnv(overrides: EnvSource = {}): EnvSource {
     KYC_PROVIDER: 'dev_stub',
     KYC_WEBHOOK_SECRET: 'test-kyc-webhook-secret-0123456789abcdef',
     ADMIN_LOGIN_MODE: 'dev_local',
+    BITCOIN_NETWORK: 'regtest',
     ADMIN_ALLOWED_EMAIL_DOMAINS: 'reef.test',
     ADMIN_WEB_ORIGIN: 'http://localhost:3001',
     // Test clients come from random 10.x addresses (see nextIp).

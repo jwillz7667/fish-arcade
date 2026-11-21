@@ -19,5 +19,5 @@ export {
   satsToCents,
   unitsToCents,
 } from './conversions.js';
-export { parseCoins, parseUsd } from './parse.js';
+export { parseBtc, parseCoins, parseUsd } from './parse.js';
 export { formatBtc, formatCoins, formatRate, formatUsd, type CoinPrecision } from './format.js';
