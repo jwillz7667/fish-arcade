@@ -1,0 +1,6 @@
+{
+  // Relative path on purpose: @reef/config depends on @reef/errors, so a package
+  // dependency back on @reef/config would create a workspace cycle.
+  "extends": "../config/tsconfig/node.json",
+  "include": ["src/**/*", "vitest.config.ts"]
+}
