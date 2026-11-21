@@ -28,6 +28,9 @@ const DEV_API_ENV: EnvSource = {
   GEO_PROVIDER: 'dev_stub',
   KYC_PROVIDER: 'dev_stub',
   KYC_WEBHOOK_SECRET: 'dev-kyc-webhook-secret-at-least-32-chars',
+  ADMIN_LOGIN_MODE: 'dev_local',
+  ADMIN_ALLOWED_EMAIL_DOMAINS: 'reef.local',
+  ADMIN_WEB_ORIGIN: 'http://localhost:3001',
 };
 
 const PROD_API_ENV: EnvSource = {
@@ -50,6 +53,14 @@ const PROD_API_ENV: EnvSource = {
   GEO_PROVIDER: 'dev_stub',
   KYC_PROVIDER: 'dev_stub',
   KYC_WEBHOOK_SECRET: 'dev-kyc-webhook-secret-at-least-32-chars',
+  ADMIN_LOGIN_MODE: 'oidc',
+  ADMIN_OIDC_ISSUER: 'https://sso.example.com',
+  ADMIN_OIDC_CLIENT_ID: 'reef-admin',
+  ADMIN_OIDC_CLIENT_SECRET: SECRET,
+  ADMIN_OIDC_REDIRECT_URI: 'https://api.example.com/v1/admin/auth/oidc/callback',
+  ADMIN_ALLOWED_EMAIL_DOMAINS: 'example.com',
+  ADMIN_WEB_ORIGIN: 'https://admin.example.com',
+  ADMIN_IP_ALLOWLIST: '203.0.113.0/24',
 };
 
 // Only dev-only messaging, geo, and KYC providers exist so far, so production fails on these
@@ -114,8 +125,29 @@ describe('parseEnv', () => {
       'GEO_PROVIDER',
       'KYC_PROVIDER',
       'KYC_WEBHOOK_SECRET',
+      'ADMIN_LOGIN_MODE',
+      'ADMIN_ALLOWED_EMAIL_DOMAINS',
+      'ADMIN_WEB_ORIGIN',
     ]);
   });
+
+  it('parses admin settings and their defaults', () => {
+    expect(parseEnv(apiEnvSchema, DEV_API_ENV)).toMatchObject({
+      ADMIN_ALLOWED_EMAIL_DOMAINS: ['reef.local'],
+      ADMIN_IP_ALLOWLIST: ['127.0.0.1/32', '::1/128'],
+      ADMIN_SESSION_IDLE_MINUTES: 30,
+      ADMIN_SESSION_MAX_HOURS: 12,
+    });
+  });
+
+  it.each(['10.0.0.0', '10.0.0.0/33', '::1/129', 'host/8', '10.0.0.0/8/1'])(
+    'rejects the admin IP allowlist entry %j',
+    (entry) => {
+      const paths = issuePaths(apiEnvSchema, { ...DEV_API_ENV, ADMIN_IP_ALLOWLIST: entry });
+
+      expect([...new Set(paths.map((path) => path.split('.')[0]))]).toEqual(['ADMIN_IP_ALLOWLIST']);
+    },
+  );
 
   it('applies geo defaults', () => {
     expect(parseEnv(apiEnvSchema, DEV_API_ENV)).toMatchObject({
@@ -226,6 +258,10 @@ describe('dev-only settings in production', () => {
     ['WEBAUTHN_ORIGINS', 'http://play.example.com'],
     ['GEO_PROVIDER', 'dev_stub'],
     ['KYC_PROVIDER', 'dev_stub'],
+    ['ADMIN_LOGIN_MODE', 'dev_local'],
+    ['ADMIN_OIDC_ISSUER', 'http://sso.example.com'],
+    ['ADMIN_WEB_ORIGIN', 'http://admin.example.com'],
+    ['ADMIN_IP_ALLOWLIST', '0.0.0.0/0'],
   ])('rejects the dev-only auth setting %s in production', (key, value) => {
     expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value })).toContain(key);
   });
