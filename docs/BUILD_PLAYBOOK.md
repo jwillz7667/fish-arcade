@@ -65,6 +65,8 @@ Then summarize what you built, how you tested it, and anything left unfinished.
 
 The playbook ships placeholder values for all of these in config. Nothing touches mainnet until Step 33.
 
+Decided: items 2 to 6 in `docs/adr/0005-treasury-custody-and-payout-limits.md` and `docs/adr/0006-vendors-and-hosting.md`. Item 1 is counsel's: see `docs/legal/counsel-brief.md`.
+
 ---
 
 ## 2. Phase overview
