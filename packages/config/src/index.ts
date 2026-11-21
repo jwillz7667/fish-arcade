@@ -1,5 +1,6 @@
 export {
   apiEnvSchema,
+  corsOriginsSchema,
   gameServerEnvSchema,
   workersEnvSchema,
   type ApiEnv,

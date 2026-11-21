@@ -29,15 +29,54 @@ const FIELD_ENCRYPTION_RULES = {
   BLIND_INDEX_KEY_FILE: (value: unknown) => value !== undefined,
 };
 
+/**
+ * Comma-separated CORS origins. Playbook Step 5: an explicit allowlist, never a wildcard.
+ */
+export const corsOriginsSchema = z
+  .string()
+  .transform((value) =>
+    value
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0),
+  )
+  .pipe(
+    z
+      .array(
+        z.url({ protocol: /^https?$/ }).refine(
+          // Zod runs refinements even after the URL check fails, so guard the parse.
+          (origin) => URL.canParse(origin) && new URL(origin).origin === origin,
+          'must be a bare origin',
+        ),
+      )
+      .min(1),
+  );
+
+const HTTP_SHAPE = {
+  API_HOST: z.string().min(1).default('0.0.0.0'),
+  CORS_ORIGINS: corsOriginsSchema,
+  // Load balancer hops in front of the API, so request.ip is the client, not the proxy.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(300),
+  SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),
+};
+
 /** Env schema for `apps/api`. */
 export const apiEnvSchema = defineEnvSchema(
   {
     API_PORT: portSchema,
+    ...HTTP_SHAPE,
     DATABASE_URL: postgresUrlSchema,
     REDIS_URL: redisUrlSchema,
     ...FIELD_ENCRYPTION_SHAPE,
   },
-  { ...TLS_RULES, ...FIELD_ENCRYPTION_RULES },
+  {
+    ...TLS_RULES,
+    ...FIELD_ENCRYPTION_RULES,
+    // Plain-http origins are for local development only.
+    CORS_ORIGINS: (value: unknown) =>
+      Array.isArray(value) && value.some((origin) => String(origin).startsWith('http:')),
+  },
 );
 
 /** Parsed env for `apps/api`. */
