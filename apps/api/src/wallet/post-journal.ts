@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 
 import {
   ConflictError,
+  DependencyUnavailableError,
   ErrorCode,
   InsufficientFundsError,
   IntegrityError,
@@ -16,7 +17,11 @@ import {
 } from '@reef/ledger';
 import type { Pool, PoolClient } from 'pg';
 
-import { isUniqueViolation } from './sql-errors.js';
+import {
+  isConnectionFailure,
+  isRetryableTransactionFailure,
+  isUniqueViolation,
+} from './sql-errors.js';
 
 /** Result of {@link postJournal}. */
 export interface PostedJournal {
@@ -35,12 +40,17 @@ interface AccountRow {
 }
 
 const IDEMPOTENCY_INDEX = 'journals_idempotency_key_key';
+/** Deadlocks and serialization failures are retried until this many attempts in total. */
+const MAX_ATTEMPTS = 3;
 
 function sameHash(stored: string, expected: string): boolean {
   const a = Buffer.from(stored, 'hex');
   const b = Buffer.from(expected, 'hex');
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+const byCode = (a: AccountRef, b: AccountRef): number =>
+  a.code < b.code ? -1 : a.code > b.code ? 1 : 0;
 
 async function findPosted(
   client: PoolClient,
@@ -65,8 +75,12 @@ async function findPosted(
 /** Creates any missing accounts and balance rows, then returns account IDs by code. */
 async function resolveAccounts(
   client: PoolClient,
-  accounts: readonly AccountRef[],
+  refs: readonly AccountRef[],
 ): Promise<Map<string, string>> {
+  // Accounts are inserted in code order and balances in ID order, the same in every journal,
+  // so two journals creating the same new accounts queue on the unique index instead of
+  // deadlocking.
+  const accounts = [...new Map(refs.map((ref) => [ref.code, ref])).values()].sort(byCode);
   const codes = accounts.map((account) => account.code);
   await client.query(
     `INSERT INTO ledger_accounts (code, owner_type, owner_id, currency, kind)
@@ -84,9 +98,9 @@ async function resolveAccounts(
     'SELECT id, code, owner_type, owner_id, currency, kind FROM ledger_accounts WHERE code = ANY($1::text[])',
     [codes],
   );
-  const byCode = new Map(rows.map((row) => [row.code, row]));
+  const rowsByCode = new Map(rows.map((row) => [row.code, row]));
   for (const account of accounts) {
-    const row = byCode.get(account.code);
+    const row = rowsByCode.get(account.code);
     const matches =
       row !== undefined &&
       row.owner_type === account.ownerType &&
@@ -101,7 +115,7 @@ async function resolveAccounts(
   }
   await client.query(
     `INSERT INTO balances (account_id, owner_type)
-     SELECT id, owner_type FROM ledger_accounts WHERE code = ANY($1::text[])
+     SELECT id, owner_type FROM ledger_accounts WHERE code = ANY($1::text[]) ORDER BY id
      ON CONFLICT (account_id) DO NOTHING`,
     [codes],
   );
@@ -113,6 +127,12 @@ async function post(
   input: JournalInput,
   requestHash: string,
 ): Promise<PostedJournal> {
+  // Claims the key before any balance lock. A concurrent call with the same key waits here
+  // until the first commits, then finds its journal and replays it. Without this it would
+  // re-read the balance the first call already debited and fail with InsufficientFunds.
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    input.idempotencyKey,
+  ]);
   const replay = await findPosted(client, input.idempotencyKey, requestHash);
   if (replay !== undefined) return replay;
 
@@ -120,10 +140,13 @@ async function post(
     client,
     input.entries.map((entry) => entry.account),
   );
-  const entries = input.entries.map((entry) => ({
-    ...entry,
-    accountId: ids.get(entry.account.code) ?? '',
-  }));
+  const entries = input.entries.map((entry) => {
+    const accountId = ids.get(entry.account.code);
+    if (accountId === undefined) {
+      throw new IntegrityError({ message: `Ledger account ${entry.account.code} not resolved` });
+    }
+    return { ...entry, accountId };
+  });
   const accountIds = entries.map((entry) => entry.accountId).sort();
 
   // Locks in ascending account ID order, the same in every journal, so two journals that touch
@@ -152,7 +175,10 @@ async function post(
       input.createdBy,
     ],
   );
-  const journalId = journals[0]?.id ?? '';
+  const journalId = journals[0]?.id;
+  if (journalId === undefined) {
+    throw new IntegrityError({ message: 'Journal insert returned no row' });
+  }
   const amounts = entries.map((entry) => entry.amount.toString());
   await client.query(
     `INSERT INTO ledger_entries (journal_id, account_id, amount)
@@ -168,13 +194,51 @@ async function post(
   return { journalId, isReplay: false };
 }
 
+/** @returns False when the connection is unusable and must be destroyed rather than reused. */
+async function rollback(client: PoolClient): Promise<boolean> {
+  try {
+    await client.query('ROLLBACK');
+    return true;
+  } catch {
+    // The original error is the one to report; this only decides the connection's fate.
+    return false;
+  }
+}
+
+/** One transaction attempt. Raw database errors propagate for {@link postJournal} to classify. */
+async function attempt(
+  pool: Pool,
+  input: JournalInput,
+  requestHash: string,
+): Promise<PostedJournal> {
+  const client = await pool.connect();
+  let isUsable = true;
+  try {
+    await client.query('BEGIN');
+    const result = await post(client, input, requestHash);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    isUsable = await rollback(client);
+    // The advisory lock makes this unreachable; it stays as a second line of defence.
+    if (isUsable && isUniqueViolation(error, IDEMPOTENCY_INDEX)) {
+      const replay = await findPosted(client, input.idempotencyKey, requestHash);
+      if (replay !== undefined) return replay;
+    }
+    throw error;
+  } finally {
+    client.release(!isUsable);
+  }
+}
+
 /**
  * Posts one double-entry journal (spec §10.2, playbook Step 4). The only way balances change.
  *
- * In one transaction: replays an existing journal with the same idempotency key and payload,
- * creates missing accounts, locks the affected balances in ascending account ID order, checks
- * that player money stays non-negative, then writes the journal, its entries, and the new
- * balances. Zero-sum is checked here and again by a deferred database trigger at commit.
+ * In one transaction: claims the idempotency key, replays an existing journal with the same key
+ * and payload, creates missing accounts, locks the affected balances in ascending account ID
+ * order, checks that player money stays non-negative, then writes the journal, its entries, and
+ * the new balances. Zero-sum is checked here and again by a deferred database trigger at commit.
+ * Deadlocks and serialization failures are retried; the idempotency key makes that safe.
  *
  * @param pool Connection pool for reef_app.
  * @param input The journal.
@@ -182,31 +246,28 @@ async function post(
  * @throws ValidationError when the journal is malformed or does not balance per currency.
  * @throws ConflictError (IDEMPOTENCY_CONFLICT) when the key was used with a different payload.
  * @throws InsufficientFundsError when a player or session balance would go negative.
+ * @throws DependencyUnavailableError when the database is unreachable or keeps aborting the
+ *   transaction. Safe to retry with the same idempotency key.
  * @throws IntegrityError when stored data contradicts the journal or a database invariant fires.
  */
 export async function postJournal(pool: Pool, input: JournalInput): Promise<PostedJournal> {
   validateJournal(input);
   const requestHash = hashJournal(input);
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  for (let attemptNumber = 1; ; attemptNumber += 1) {
     try {
-      const result = await post(client, input, requestHash);
-      await client.query('COMMIT');
-      return result;
+      return await attempt(pool, input, requestHash);
     } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
+      if (isDomainError(error)) throw error;
+      const isRetryable = isRetryableTransactionFailure(error);
+      if (isRetryable && attemptNumber < MAX_ATTEMPTS) continue;
+      if (isRetryable || isConnectionFailure(error)) {
+        throw new DependencyUnavailableError({
+          dependency: 'postgres',
+          message: 'Journal could not be posted; retry with the same idempotency key',
+          cause: error,
+        });
+      }
+      throw new IntegrityError({ message: 'Journal could not be posted', cause: error });
     }
-  } catch (error) {
-    // A concurrent call with the same key committed first: answer as a replay.
-    if (isUniqueViolation(error, IDEMPOTENCY_INDEX)) {
-      const replay = await findPosted(client, input.idempotencyKey, requestHash);
-      if (replay !== undefined) return replay;
-    }
-    if (isDomainError(error)) throw error;
-    throw new IntegrityError({ message: 'Journal could not be posted', cause: error });
-  } finally {
-    client.release();
   }
 }
