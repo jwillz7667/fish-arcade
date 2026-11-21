@@ -22,7 +22,13 @@ const PACKAGES_DIR = fileURLToPath(new URL('../../', import.meta.url));
 export const SOURCE_RESOLVE = {
   resolve: {
     conditions: CONDITIONS,
-    alias: [{ find: /^@reef\/([a-z0-9-]+)$/, replacement: `${PACKAGES_DIR}$1/src/index.ts` }],
+    alias: [
+      { find: /^@reef\/([a-z0-9-]+)$/, replacement: `${PACKAGES_DIR}$1/src/index.ts` },
+      {
+        find: /^@reef\/([a-z0-9-]+)\/testing$/,
+        replacement: `${PACKAGES_DIR}$1/src/testing/index.ts`,
+      },
+    ],
   },
   ssr: { resolve: { conditions: CONDITIONS, externalConditions: [SOURCE_CONDITION] } },
 };
