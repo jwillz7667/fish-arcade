@@ -107,7 +107,10 @@ export class RateLimitedError extends DomainError {
 
 /** Codes a {@link ComplianceBlockedError} may carry. */
 export type ComplianceErrorCode =
-  typeof ErrorCode.COMPLIANCE_BLOCKED | typeof ErrorCode.GEO_CHECK_REQUIRED;
+  | typeof ErrorCode.COMPLIANCE_BLOCKED
+  | typeof ErrorCode.GEO_CHECK_REQUIRED
+  | typeof ErrorCode.KYC_REQUIRED
+  | typeof ErrorCode.REDEMPTION_SUSPENDED;
 
 /**
  * A compliance control (geofence, KYC, sanctions, responsible gaming) blocks the action.
