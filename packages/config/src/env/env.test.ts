@@ -25,6 +25,7 @@ const DEV_API_ENV: EnvSource = {
   TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
   EMAIL_PROVIDER: 'mailpit',
   SMS_PROVIDER: 'mailpit',
+  GEO_PROVIDER: 'dev_stub',
 };
 
 const PROD_API_ENV: EnvSource = {
@@ -44,11 +45,12 @@ const PROD_API_ENV: EnvSource = {
   TURNSTILE_SECRET_KEY: SECRET,
   EMAIL_PROVIDER: 'mailpit',
   SMS_PROVIDER: 'mailpit',
+  GEO_PROVIDER: 'dev_stub',
 };
 
-// Mailpit is the only messaging provider so far and is dev-only, so production fails on these
-// two until a vendor adapter lands. Other production checks are asserted without them.
-const MESSAGING_PROVIDERS = new Set(['EMAIL_PROVIDER', 'SMS_PROVIDER']);
+// Only dev-only messaging and geo providers exist so far, so production fails on these three
+// until vendor adapters land. Other production checks are asserted without them.
+const MESSAGING_PROVIDERS = new Set(['EMAIL_PROVIDER', 'SMS_PROVIDER', 'GEO_PROVIDER']);
 
 function captureConfigError(schema: z.ZodType, source: EnvSource): ConfigError | undefined {
   try {
@@ -78,7 +80,11 @@ describe('parseEnv', () => {
   });
 
   it('accepts a production env that uses TLS, apart from the dev-only messaging providers', () => {
-    expect(issuePaths(apiEnvSchema, PROD_API_ENV)).toEqual(['EMAIL_PROVIDER', 'SMS_PROVIDER']);
+    expect(issuePaths(apiEnvSchema, PROD_API_ENV)).toEqual([
+      'EMAIL_PROVIDER',
+      'SMS_PROVIDER',
+      'GEO_PROVIDER',
+    ]);
   });
 
   it('names every missing variable', () => {
@@ -95,7 +101,16 @@ describe('parseEnv', () => {
       'TURNSTILE_SECRET_KEY',
       'EMAIL_PROVIDER',
       'SMS_PROVIDER',
+      'GEO_PROVIDER',
     ]);
+  });
+
+  it('applies geo defaults', () => {
+    expect(parseEnv(apiEnvSchema, DEV_API_ENV)).toMatchObject({
+      GEO_MIN_CONFIDENCE: 0.9,
+      GEO_PROVIDER_TIMEOUT_MS: 3_000,
+      GEO_TOKEN_TTL_SECONDS: 600,
+    });
   });
 
   it('parses auth settings and applies their defaults', () => {
@@ -197,6 +212,7 @@ describe('dev-only settings in production', () => {
     ['EMAIL_PROVIDER', 'mailpit'],
     ['SMS_PROVIDER', 'mailpit'],
     ['WEBAUTHN_ORIGINS', 'http://play.example.com'],
+    ['GEO_PROVIDER', 'dev_stub'],
   ])('rejects the dev-only auth setting %s in production', (key, value) => {
     expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value })).toContain(key);
   });
