@@ -27,6 +27,13 @@ const SENSITIVE_WORDS = new Set([
   'descriptor',
   'seed',
   'mnemonic',
+  // Player auth (playbook Step 6): signup and MFA tickets, CSRF tokens, TOTP secrets and URIs,
+  // recovery codes, and WebAuthn credential responses.
+  'ticket',
+  'csrf',
+  'totp',
+  'recovery',
+  'credential',
 ]);
 
 /** Multi-word keys that are sensitive only as a whole, such as `firstName`. */
