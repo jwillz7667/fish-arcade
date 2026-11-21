@@ -8,6 +8,7 @@ import {
 } from './define-env-schema.js';
 import { ADMIN_DEV_ONLY_RULES, ADMIN_SHAPE } from './admin-schema.js';
 import { AUTH_DEV_ONLY_RULES, AUTH_SHAPE } from './auth-schema.js';
+import { BITCOIN_DEV_ONLY_RULES, BITCOIN_SHAPE } from './bitcoin-schema.js';
 import {
   GEO_DEV_ONLY_RULES,
   GEO_SHAPE,
@@ -63,6 +64,7 @@ export const apiEnvSchema = defineEnvSchema(
     ...GEO_SHAPE,
     ...KYC_SHAPE,
     ...ADMIN_SHAPE,
+    ...BITCOIN_SHAPE,
   },
   {
     ...TLS_RULES,
@@ -71,6 +73,7 @@ export const apiEnvSchema = defineEnvSchema(
     ...GEO_DEV_ONLY_RULES,
     ...KYC_DEV_ONLY_RULES,
     ...ADMIN_DEV_ONLY_RULES,
+    ...BITCOIN_DEV_ONLY_RULES,
     TRUST_PROXY_HOPS: (value: unknown) => value === undefined,
     // Plain-http origins are for local development only.
     CORS_ORIGINS: (value: unknown) =>
@@ -83,8 +86,13 @@ export type ApiEnv = z.output<typeof apiEnvSchema>;
 
 /** Env schema for `apps/workers`. */
 export const workersEnvSchema = defineEnvSchema(
-  { DATABASE_URL: postgresUrlSchema, REDIS_URL: redisUrlSchema, ...FIELD_ENCRYPTION_SHAPE },
-  { ...TLS_RULES, ...FIELD_ENCRYPTION_RULES },
+  {
+    DATABASE_URL: postgresUrlSchema,
+    REDIS_URL: redisUrlSchema,
+    ...FIELD_ENCRYPTION_SHAPE,
+    ...BITCOIN_SHAPE,
+  },
+  { ...TLS_RULES, ...FIELD_ENCRYPTION_RULES, ...BITCOIN_DEV_ONLY_RULES },
 );
 
 /** Parsed env for `apps/workers`. */
