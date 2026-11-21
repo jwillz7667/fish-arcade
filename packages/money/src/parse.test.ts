@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
 import { formatBtc, formatCoins, formatUsd } from './format.js';
-import { parseBtc, parseCoins, parseUsd } from './parse.js';
+import { parseBtc, parseCentsPerBtc, parseCoins, parseUsd } from './parse.js';
 import { cents, sats, units } from './types.js';
 
 describe('parseCoins', () => {
@@ -97,4 +97,25 @@ describe('parseBtc', () => {
       }),
     );
   });
+});
+
+describe('parseCentsPerBtc', () => {
+  it.each([
+    ['57780.60000', 5_778_060n],
+    ['57769.26', 5_776_926n],
+    ['58241', 5_824_100n],
+    ['57801.8', 5_780_180n],
+    ['50000.999', 5_000_099n],
+  ])('parses %s, dropping digits past the cent', (text, expected) => {
+    expect(parseCentsPerBtc(text)).toBe(expected);
+  });
+
+  it.each(['0', '0.00', '-57780', '5.7e4', '57,780', '57780.', '.5', 'abc', ''])(
+    'rejects %j',
+    (text) => {
+      expect(() => parseCentsPerBtc(text)).toThrow(
+        expect.objectContaining({ code: ErrorCode.INVALID_AMOUNT }),
+      );
+    },
+  );
 });

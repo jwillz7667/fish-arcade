@@ -79,6 +79,7 @@ describe('GreenfieldClient', () => {
       {
         paymentMethodId: 'BTC-LN',
         destination: 'lnbc1',
+        rate: '50000',
         amount: '0.0004',
         paymentMethodPaid: '0',
         due: '0.0004',
@@ -86,6 +87,7 @@ describe('GreenfieldClient', () => {
       {
         paymentMethodId: 'BTC-CHAIN',
         destination: 'bcrt1qx',
+        rate: '57801.8',
         amount: '0.00039980',
         paymentMethodPaid: '0.0005',
         due: '-0.0000102',
@@ -99,6 +101,7 @@ describe('GreenfieldClient', () => {
       amount: 39_980n,
       paid: 50_000n,
       due: -1_020n,
+      rate: 5_780_180n,
     });
   });
 
@@ -148,6 +151,7 @@ describe('GreenfieldClient', () => {
 
     await btcpay.setOnChainWallet('s-1', '2-of-a-b-c', 'cold');
     await btcpay.setRateScript('s-1', 'BTC_USD = 50000;');
+    await btcpay.setPreferredRateSource('s-1', 'kraken');
     await btcpay.createWebhook('s-1', { url: 'http://hook', secret: 's' });
     await btcpay.createApiKey('reef', ['btcpay.store.canviewinvoices:s-1']);
     expect(await btcpay.previewReceiveAddresses('s-1', 1)).toEqual(['bcrt1q']);
@@ -158,6 +162,7 @@ describe('GreenfieldClient', () => {
       ),
     ).toEqual([
       'PUT /api/v1/stores/s-1/payment-methods/BTC-CHAIN',
+      'PUT /api/v1/stores/s-1/rates/configuration/primary',
       'PUT /api/v1/stores/s-1/rates/configuration/primary',
       'POST /api/v1/stores/s-1/webhooks',
       'POST /api/v1/api-keys',
@@ -189,6 +194,7 @@ describe('GreenfieldClient', () => {
         {
           paymentMethodId: 'BTC-CHAIN',
           destination: 'x',
+          rate: '50000',
           amount: '1e-8',
           paymentMethodPaid: '0',
           due: '0',

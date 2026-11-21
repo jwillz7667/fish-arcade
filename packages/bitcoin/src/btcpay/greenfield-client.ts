@@ -1,5 +1,13 @@
 import { DependencyUnavailableError, NotFoundError } from '@reef/errors';
-import { CENTS_PER_DOLLAR, parseBtc, sats, type Cents, type Sats } from '@reef/money';
+import {
+  CENTS_PER_DOLLAR,
+  parseBtc,
+  parseCentsPerBtc,
+  sats,
+  type Cents,
+  type CentsPerBtc,
+  type Sats,
+} from '@reef/money';
 import { z } from 'zod';
 
 const TIMEOUT_MS = 10_000;
@@ -48,9 +56,19 @@ function btcAmount(isSigned: boolean) {
   });
 }
 
+const rateSchema = z.string().transform((text, ctx): CentsPerBtc => {
+  try {
+    return parseCentsPerBtc(text);
+  } catch {
+    ctx.addIssue({ code: 'custom', message: 'is not a BTC/USD rate' });
+    return z.NEVER;
+  }
+});
+
 const paymentMethodSchema = z.object({
   paymentMethodId: z.string(),
   destination: z.string(),
+  rate: rateSchema,
   amount: btcAmount(false),
   paymentMethodPaid: btcAmount(false),
   due: btcAmount(true),
@@ -63,6 +81,11 @@ export interface OnChainPayment {
   readonly paid: Sats;
   /** Negative when overpaid (spec §22.2: credit the package, record the overage). */
   readonly due: bigint;
+  /**
+   * The BTC/USD rate BTCPay priced the invoice at. Recorded with every invoice and checked
+   * against the oracle with `assertRatesAgree` (playbook Step 11).
+   */
+  readonly rate: CentsPerBtc;
 }
 
 const storeSchema = z.object({ id: z.string().min(1), name: z.string() });
@@ -161,6 +184,22 @@ export class GreenfieldClient {
         effectiveScript: script,
         spread: '0',
       },
+    );
+  }
+
+  /**
+   * Prices USD invoices from one exchange the oracle also polls (playbook Step 11). Staging and
+   * production use `kraken`; every invoice's rate is then checked against the oracle.
+   *
+   * @param storeId Store.
+   * @param source A BTCPay rate source ID, such as `kraken`.
+   * @throws DependencyUnavailableError on any failure.
+   */
+  async setPreferredRateSource(storeId: string, source: string): Promise<void> {
+    await this.#request(
+      'PUT',
+      `/api/v1/stores/${encodeURIComponent(storeId)}/rates/configuration/primary`,
+      { isCustomScript: false, preferredSource: source, spread: '0' },
     );
   }
 
@@ -309,6 +348,7 @@ export class GreenfieldClient {
       amount: sats(method.amount),
       paid: sats(method.paymentMethodPaid),
       due: method.due,
+      rate: method.rate,
     };
   }
 

@@ -9,6 +9,7 @@ import {
 import { ADMIN_DEV_ONLY_RULES, ADMIN_SHAPE } from './admin-schema.js';
 import { AUTH_DEV_ONLY_RULES, AUTH_SHAPE } from './auth-schema.js';
 import { BITCOIN_DEV_ONLY_RULES, BITCOIN_SHAPE } from './bitcoin-schema.js';
+import { PRICE_DEV_ONLY_RULES, PRICE_SHAPE } from './price-schema.js';
 import {
   GEO_DEV_ONLY_RULES,
   GEO_SHAPE,
@@ -91,8 +92,9 @@ export const workersEnvSchema = defineEnvSchema(
     REDIS_URL: redisUrlSchema,
     ...FIELD_ENCRYPTION_SHAPE,
     ...BITCOIN_SHAPE,
+    ...PRICE_SHAPE,
   },
-  { ...TLS_RULES, ...FIELD_ENCRYPTION_RULES, ...BITCOIN_DEV_ONLY_RULES },
+  { ...TLS_RULES, ...FIELD_ENCRYPTION_RULES, ...BITCOIN_DEV_ONLY_RULES, ...PRICE_DEV_ONLY_RULES },
 );
 
 /** Parsed env for `apps/workers`. */

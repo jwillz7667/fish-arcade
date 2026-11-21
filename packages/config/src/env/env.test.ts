@@ -346,10 +346,34 @@ describe('dev-only settings in production', () => {
 });
 
 describe('app schemas', () => {
-  it('parses the workers env', () => {
+  it('parses the workers env with the default price sources', () => {
     const workers = { ...DEV_API_ENV, API_PORT: undefined };
 
-    expect(parseEnv(workersEnvSchema, workers).REDIS_URL).toContain('redis://');
+    expect(parseEnv(workersEnvSchema, workers)).toMatchObject({
+      PRICE_SOURCES: ['coinbase', 'kraken', 'bitstamp'],
+      PRICE_POLL_INTERVAL_MS: 15_000,
+    });
+  });
+
+  it.each([
+    ['fixed', 'PRICE_SOURCES'],
+    ['kraken', 'PRICE_SOURCES'],
+  ])('rejects PRICE_SOURCES=%s in production', (sources, path) => {
+    const workers = { ...PROD_API_ENV, PRICE_SOURCES: sources };
+
+    expect(issuePaths(workersEnvSchema, workers)).toContain(path);
+  });
+
+  it.each(['kraken,kraken', 'kraken,binance', ''])('rejects PRICE_SOURCES=%j', (sources) => {
+    const paths = issuePaths(workersEnvSchema, { ...DEV_API_ENV, PRICE_SOURCES: sources });
+
+    expect(paths.map((path) => path.split('.')[0])).toContain('PRICE_SOURCES');
+  });
+
+  it('accepts two or more exchanges in production', () => {
+    expect(
+      issuePaths(workersEnvSchema, { ...PROD_API_ENV, PRICE_SOURCES: 'kraken,coinbase' }),
+    ).not.toContain('PRICE_SOURCES');
   });
 
   it('parses the game-server env and requires TLS Redis in production', () => {

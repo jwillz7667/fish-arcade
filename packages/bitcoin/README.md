@@ -45,6 +45,10 @@ The bootstrap (`scripts/bootstrap-regtest.ts`):
 
 BTCPay blocks webhooks to private addresses. The compose file allows only `host.docker.internal`, where the API and the test receiver listen, through `BTCPAY_SSRFEXCEPTIONS`. On Linux, run the end-to-end tests with `BTC_TEST_WEBHOOK_BIND=0.0.0.0` so the container can reach the receiver.
 
+## Exchange rate
+
+BTCPay converts USD invoices to BTC with its own rate source. `getOnChainPayment` returns the rate an invoice used (`rate`, integer cents per BTC), which is recorded with the invoice and checked against the oracle with `assertRatesAgree` from `@reef/pricing`. Staging and production stores use `setPreferredRateSource(storeId, 'kraken')`: Kraken is one of the oracle's own sources, so the two agree to well within the 1% guard. The regtest store prices at a fixed $50,000/BTC, and the development oracle's `fixed` source reports the same.
+
 ## Production keys
 
 Production keys are made by people, on hardware wallets, following `docs/runbooks/key-ceremony.md`. Nothing in this package generates, stores, or accepts production private keys.

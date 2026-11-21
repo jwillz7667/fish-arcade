@@ -11,13 +11,20 @@ export default defineConfig({
       provider: 'v8',
       // Only workspaces with integration suites; other packages are measured by unit tests.
       // Globs match absolute paths, hence the leading **.
-      include: ['**/packages/db/src/**/*.ts', '**/apps/api/src/**/*.ts'],
+      include: [
+        '**/packages/db/src/**/*.ts',
+        '**/apps/api/src/**/*.ts',
+        '**/apps/workers/src/**/*.ts',
+      ],
       exclude: [
         '**/*.test.{ts,tsx}',
         '**/index.ts',
         '**/generated/**',
         '**/testing/**',
         '**/apps/api/src/main.ts',
+        '**/apps/workers/src/main.ts',
+        // Exchange adapters call the internet; unit tests cover them with a fake transport.
+        '**/apps/workers/src/price-oracle/exchange-sources.ts',
         // Third-party adapters and key loading: integration swaps in test doubles and test
         // keys, and the unit tests cover these files instead.
         '**/apps/api/src/auth/auth-dependencies.ts',

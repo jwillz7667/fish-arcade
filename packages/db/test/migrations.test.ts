@@ -21,6 +21,7 @@ describe('migrations on an empty database', () => {
       ['admin_oidc_subject', true],
       ['kyc_sanctions_clearance', true],
       ['ledger_hardening', true],
+      ['price_snapshot_per_minute', true],
     ]);
   });
 

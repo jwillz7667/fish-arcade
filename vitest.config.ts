@@ -65,6 +65,10 @@ export default defineConfig({
         'apps/api/src/admin/http/admin-decorators.ts',
         'apps/api/src/admin/auth/oidc-client.ts',
         'apps/api/src/admin/approvals/approval-actions.ts',
+        // The workers entrypoint and its Redis and Postgres stores: covered by the workers
+        // integration tests.
+        'apps/workers/src/main.ts',
+        'apps/workers/src/price-oracle/price-stores.ts',
         'apps/api/src/shared/**',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],
