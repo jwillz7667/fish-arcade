@@ -14,6 +14,8 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   esbuild: true
+  # node-gyp-build picks a shipped N-API prebuild; it compiles only on unlisted platforms.
+  argon2: true
   # Install-time telemetry pulled in by swagger-ui-dist; never run it.
   '@scarf/scarf': false
 

@@ -45,6 +45,12 @@ const VARIANT_KEYS = [
   'REDIS_URL',
   'DATABASE_ADMIN_URL',
   'MIGRATION_DATABASE_URL',
+  'signupTicket',
+  'mfaTicket',
+  'x-csrf-token',
+  'totpUri',
+  'recoveryCodes',
+  'credential',
 ];
 
 describe('isSensitiveKey', () => {
@@ -60,6 +66,8 @@ describe('isSensitiveKey', () => {
     'amount',
     'status',
     'requestId',
+    'statusCode',
+    'challengeId',
     'name',
     '',
     '__',

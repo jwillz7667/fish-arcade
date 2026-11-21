@@ -12,8 +12,10 @@ export {
   NotFoundError,
   RateLimitedError,
   ValidationError,
+  type AuthErrorCode,
   type ConflictErrorCode,
   type DomainErrorOptions,
+  type ForbiddenErrorCode,
   type ValidationErrorCode,
   type ValidationIssue,
 } from './errors.js';

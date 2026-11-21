@@ -22,7 +22,9 @@ describe('DomainError subclasses', () => {
   it.each([
     [new ValidationError(), ErrorCode.VALIDATION_FAILED, 400],
     [new AuthError(), ErrorCode.UNAUTHENTICATED, 401],
+    [new AuthError({ code: ErrorCode.OTP_EXPIRED }), ErrorCode.OTP_EXPIRED, 401],
     [new ForbiddenError(), ErrorCode.FORBIDDEN, 403],
+    [new ForbiddenError({ code: ErrorCode.CSRF_INVALID }), ErrorCode.CSRF_INVALID, 403],
     [new NotFoundError(), ErrorCode.NOT_FOUND, 404],
     [new ConflictError(), ErrorCode.CONFLICT, 409],
     [new RateLimitedError(), ErrorCode.RATE_LIMITED, 429],

@@ -42,19 +42,35 @@ export class ValidationError extends DomainError {
   }
 }
 
+/** Codes an {@link AuthError} may carry. */
+export type AuthErrorCode =
+  | typeof ErrorCode.UNAUTHENTICATED
+  | typeof ErrorCode.INVALID_CREDENTIALS
+  | typeof ErrorCode.OTP_INVALID
+  | typeof ErrorCode.OTP_EXPIRED
+  | typeof ErrorCode.OTP_ATTEMPTS_EXCEEDED
+  | typeof ErrorCode.STEP_UP_REQUIRED;
+
 /** The caller is not authenticated, or their credentials are invalid. HTTP 401. */
 export class AuthError extends DomainError {
-  /** @param options Message overrides and cause. */
-  constructor(options: DomainErrorOptions = {}) {
-    super({ ...options, code: ErrorCode.UNAUTHENTICATED, httpStatus: 401 });
+  /** @param options Message overrides, cause, and a specific auth code. */
+  constructor(options: DomainErrorOptions & { readonly code?: AuthErrorCode } = {}) {
+    super({ ...options, code: options.code ?? ErrorCode.UNAUTHENTICATED, httpStatus: 401 });
   }
 }
 
-/** The caller is authenticated but lacks permission. HTTP 403. */
+/** Codes a {@link ForbiddenError} may carry. */
+export type ForbiddenErrorCode =
+  | typeof ErrorCode.FORBIDDEN
+  | typeof ErrorCode.CSRF_INVALID
+  | typeof ErrorCode.MFA_NOT_ENROLLED
+  | typeof ErrorCode.BOT_CHECK_FAILED;
+
+/** The caller is authenticated but lacks permission, or a request check failed. HTTP 403. */
 export class ForbiddenError extends DomainError {
-  /** @param options Message overrides and cause. */
-  constructor(options: DomainErrorOptions = {}) {
-    super({ ...options, code: ErrorCode.FORBIDDEN, httpStatus: 403 });
+  /** @param options Message overrides, cause, and a specific code. */
+  constructor(options: DomainErrorOptions & { readonly code?: ForbiddenErrorCode } = {}) {
+    super({ ...options, code: options.code ?? ErrorCode.FORBIDDEN, httpStatus: 403 });
   }
 }
 

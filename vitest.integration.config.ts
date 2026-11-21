@@ -18,6 +18,13 @@ export default defineConfig({
         '**/generated/**',
         '**/testing/**',
         '**/apps/api/src/main.ts',
+        // Third-party adapters and key loading: integration swaps in test doubles and test
+        // keys, and the unit tests cover these files instead.
+        '**/apps/api/src/auth/auth-dependencies.ts',
+        '**/apps/api/src/auth/crypto/auth-keys.ts',
+        '**/apps/api/src/auth/bot/turnstile-verifier.ts',
+        '**/apps/api/src/auth/messaging/mailpit-sender.ts',
+        '**/apps/api/src/auth/password/breached-password-checker.ts',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],
       reportsDirectory: 'coverage/integration',

@@ -17,6 +17,14 @@ const DEV_API_ENV: EnvSource = {
   FIELD_ENCRYPTION_LOCAL_KEY_FILE: '.keys/dev/field-master.key',
   BLIND_INDEX_KEY_FILE: '.keys/dev/blind-index.key',
   CORS_ORIGINS: 'http://localhost:3000',
+  AUTH_JWT_PRIVATE_KEY_FILE: '.keys/dev/auth-jwt.pem',
+  AUTH_JWT_KEY_ID: 'dev-1',
+  AUTH_HMAC_KEY_FILE: '.keys/dev/auth-hmac.key',
+  WEBAUTHN_RP_ID: 'localhost',
+  WEBAUTHN_ORIGINS: 'http://localhost:3000',
+  TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA',
+  EMAIL_PROVIDER: 'mailpit',
+  SMS_PROVIDER: 'mailpit',
 };
 
 const PROD_API_ENV: EnvSource = {
@@ -28,7 +36,19 @@ const PROD_API_ENV: EnvSource = {
   FIELD_ENCRYPTION_KMS_KEY_ID: 'alias/reef-fields',
   BLIND_INDEX_KEY: SECRET,
   CORS_ORIGINS: 'https://play.example.com,https://admin.example.com',
+  AUTH_JWT_PRIVATE_KEY: SECRET,
+  AUTH_JWT_KEY_ID: 'prod-2026-11',
+  AUTH_HMAC_KEY: SECRET,
+  WEBAUTHN_RP_ID: 'play.example.com',
+  WEBAUTHN_ORIGINS: 'https://play.example.com',
+  TURNSTILE_SECRET_KEY: SECRET,
+  EMAIL_PROVIDER: 'mailpit',
+  SMS_PROVIDER: 'mailpit',
 };
+
+// Mailpit is the only messaging provider so far and is dev-only, so production fails on these
+// two until a vendor adapter lands. Other production checks are asserted without them.
+const MESSAGING_PROVIDERS = new Set(['EMAIL_PROVIDER', 'SMS_PROVIDER']);
 
 function captureConfigError(schema: z.ZodType, source: EnvSource): ConfigError | undefined {
   try {
@@ -44,6 +64,10 @@ function issuePaths(schema: z.ZodType, source: EnvSource): string[] {
   return (captureConfigError(schema, source)?.issues ?? []).map((issue) => issue.path);
 }
 
+function prodIssuePaths(source: EnvSource): string[] {
+  return issuePaths(apiEnvSchema, source).filter((path) => !MESSAGING_PROVIDERS.has(path));
+}
+
 describe('parseEnv', () => {
   it('parses a valid dev env and applies defaults', () => {
     expect(parseEnv(apiEnvSchema, DEV_API_ENV)).toMatchObject({
@@ -53,8 +77,8 @@ describe('parseEnv', () => {
     });
   });
 
-  it('parses a valid production env that uses TLS', () => {
-    expect(parseEnv(apiEnvSchema, PROD_API_ENV).NODE_ENV).toBe('production');
+  it('accepts a production env that uses TLS, apart from the dev-only messaging providers', () => {
+    expect(issuePaths(apiEnvSchema, PROD_API_ENV)).toEqual(['EMAIL_PROVIDER', 'SMS_PROVIDER']);
   });
 
   it('names every missing variable', () => {
@@ -65,11 +89,34 @@ describe('parseEnv', () => {
       'DATABASE_URL',
       'REDIS_URL',
       'FIELD_ENCRYPTION_PROVIDER',
+      'AUTH_JWT_KEY_ID',
+      'WEBAUTHN_RP_ID',
+      'WEBAUTHN_ORIGINS',
+      'TURNSTILE_SECRET_KEY',
+      'EMAIL_PROVIDER',
+      'SMS_PROVIDER',
     ]);
   });
 
+  it('parses auth settings and applies their defaults', () => {
+    expect(parseEnv(apiEnvSchema, DEV_API_ENV)).toMatchObject({
+      AUTH_REFRESH_TTL_DAYS: 30,
+      HIBP_ENABLED: true,
+      WEBAUTHN_ORIGINS: ['http://localhost:3000'],
+      MAILPIT_URL: 'http://127.0.0.1:8025',
+    });
+  });
+
+  it('turns HIBP_ENABLED=false into a false flag', () => {
+    expect(parseEnv(apiEnvSchema, { ...DEV_API_ENV, HIBP_ENABLED: 'false' }).HIBP_ENABLED).toBe(
+      false,
+    );
+  });
+
   it('parses CORS origins and applies HTTP defaults', () => {
-    expect(parseEnv(apiEnvSchema, PROD_API_ENV)).toMatchObject({
+    const source = { ...DEV_API_ENV, CORS_ORIGINS: PROD_API_ENV['CORS_ORIGINS'] };
+
+    expect(parseEnv(apiEnvSchema, source)).toMatchObject({
       CORS_ORIGINS: ['https://play.example.com', 'https://admin.example.com'],
       API_HOST: '0.0.0.0',
       TRUST_PROXY_HOPS: 0,
@@ -88,9 +135,9 @@ describe('parseEnv', () => {
   );
 
   it('rejects plain-http CORS origins in production', () => {
-    expect(
-      issuePaths(apiEnvSchema, { ...PROD_API_ENV, CORS_ORIGINS: 'http://play.example.com' }),
-    ).toEqual(['CORS_ORIGINS']);
+    expect(prodIssuePaths({ ...PROD_API_ENV, CORS_ORIGINS: 'http://play.example.com' })).toEqual([
+      'CORS_ORIGINS',
+    ]);
   });
 
   it.each([
@@ -123,13 +170,13 @@ describe('dev-only settings in production', () => {
     ['DATABASE_URL', 'postgresql://reef:x@db.internal:5432/reef?sslmode=prefer'],
     ['REDIS_URL', 'redis://:x@cache.internal:6379'],
   ])('rejects plaintext %s', (key, value) => {
-    const paths = issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value });
+    const paths = prodIssuePaths({ ...PROD_API_ENV, [key]: value });
 
     expect(paths).toEqual([key]);
   });
 
   it('rejects local field-encryption keys in production', () => {
-    const paths = issuePaths(apiEnvSchema, {
+    const paths = prodIssuePaths({
       ...PROD_API_ENV,
       FIELD_ENCRYPTION_PROVIDER: 'local',
       FIELD_ENCRYPTION_LOCAL_KEY_FILE: 'master.key',
@@ -143,10 +190,21 @@ describe('dev-only settings in production', () => {
     ]);
   });
 
+  it.each([
+    ['AUTH_JWT_PRIVATE_KEY_FILE', 'jwt.pem'],
+    ['AUTH_HMAC_KEY_FILE', 'hmac.key'],
+    ['TURNSTILE_SECRET_KEY', '1x0000000000000000000000000000000AA'],
+    ['EMAIL_PROVIDER', 'mailpit'],
+    ['SMS_PROVIDER', 'mailpit'],
+    ['WEBAUTHN_ORIGINS', 'http://play.example.com'],
+  ])('rejects the dev-only auth setting %s in production', (key, value) => {
+    expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value })).toContain(key);
+  });
+
   it.each(['DATABASE_URL', 'REDIS_URL'])(
     'reports a malformed %s in production instead of crashing',
     (key) => {
-      expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: 'not a url' })).toEqual([key]);
+      expect(prodIssuePaths({ ...PROD_API_ENV, [key]: 'not a url' })).toEqual([key]);
     },
   );
 

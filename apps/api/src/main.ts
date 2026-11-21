@@ -1,9 +1,11 @@
-import { apiEnvSchema, loadEnv } from '@reef/config';
+import { apiEnvSchema, formatConfigError, loadEnv } from '@reef/config';
+import { ConfigError } from '@reef/errors';
 import { createLogger, RequestContext } from '@reef/logger';
 import { Redis } from 'ioredis';
 import pg from 'pg';
 
 import { createApp } from './app/create-app.js';
+import { createAuthDependencies } from './auth/index.js';
 
 const env = loadEnv(apiEnvSchema);
 const requestContext = new RequestContext();
@@ -15,7 +17,13 @@ redis.on('error', (error: Error) => {
   logger.warn({ err: error }, 'redis connection error');
 });
 
-const app = await createApp({ env, pool, redis, logger, requestContext });
+const auth = await createAuthDependencies(env).catch((error: unknown) => {
+  if (!(error instanceof ConfigError)) throw error;
+  // Names the bad setting only; key material never reaches the output.
+  process.stderr.write(formatConfigError(error));
+  process.exit(1);
+});
+const app = await createApp({ env, pool, redis, logger, requestContext, auth });
 
 let isShuttingDown = false;
 async function shutdown(signal: string): Promise<void> {

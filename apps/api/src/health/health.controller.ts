@@ -4,6 +4,7 @@ import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 
 import { PG_POOL, REDIS } from '../app/tokens.js';
+import { Public } from '../auth/index.js';
 import { SkipRateLimit } from '../http/rate-limit/rate-limit.decorator.js';
 
 /** Health of one dependency. */
@@ -31,6 +32,7 @@ async function probe(check: () => Promise<unknown>): Promise<CheckStatus> {
 
 /** Liveness and readiness probes for the load balancer and orchestrator. */
 @Controller()
+@Public()
 export class HealthController {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,

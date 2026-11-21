@@ -195,14 +195,15 @@ describe('rate limiting', () => {
 });
 
 describe('idempotent money routes', () => {
-  const post = (key: string | undefined, body: unknown, user: string | null = 'user-1') =>
+  const [userOne, userA, userB] = [randomUUID(), randomUUID(), randomUUID()];
+  const post = async (key: string | undefined, body: unknown, user: string | null = userOne) =>
     main.app.inject({
       method: 'POST',
       url: '/v1/test/echo',
       headers: {
         'content-type': 'application/json',
         ...(key === undefined ? {} : { 'idempotency-key': key }),
-        ...(user === null ? {} : { 'x-test-user': user }),
+        ...(user === null ? {} : { authorization: await main.bearerFor(user) }),
       },
       payload: JSON.stringify(body),
     });
@@ -244,8 +245,8 @@ describe('idempotent money routes', () => {
     const key = `key-${randomUUID()}`;
 
     const [a, b] = [
-      await post(key, { amount: '1' }, 'user-a'),
-      await post(key, { amount: '1' }, 'user-b'),
+      await post(key, { amount: '1' }, userA),
+      await post(key, { amount: '1' }, userB),
     ];
 
     expect([a.headers['idempotent-replayed'], b.headers['idempotent-replayed']]).toEqual([
@@ -317,20 +318,11 @@ describe('request IDs, CORS, and OpenAPI', () => {
   });
 
   it('serves OpenAPI outside production only', async () => {
-    const prod = await buildTestApp(
-      testEnv({
-        NODE_ENV: 'production',
-        DATABASE_URL: `${inject('databaseUrls').reef_app}?sslmode=require`,
-        REDIS_URL: 'rediss://unused.example:6379',
-        FIELD_ENCRYPTION_PROVIDER: 'kms',
-        FIELD_ENCRYPTION_LOCAL_KEY_FILE: undefined,
-        BLIND_INDEX_KEY_FILE: undefined,
-        FIELD_ENCRYPTION_KMS_KEY_ID: 'alias/unused',
-        BLIND_INDEX_KEY: 'unused',
-        CORS_ORIGINS: 'https://play.example.com',
-      }),
-      'redis://127.0.0.1:1/0',
-    );
+    // Applied after validation: production env cannot parse until a vendor messaging
+    // provider exists (Mailpit is dev-only).
+    const prod = await buildTestApp(testEnv(), 'redis://127.0.0.1:1/0', {
+      NODE_ENV: 'production',
+    });
     try {
       const dev = await main.app.inject({ method: 'GET', url: '/v1/openapi.json' });
       const production = await prod.app.inject({ method: 'GET', url: '/v1/openapi.json' });

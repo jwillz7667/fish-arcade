@@ -6,7 +6,11 @@ import {
   postgresUrlSchema,
   redisUrlSchema,
 } from './define-env-schema.js';
+import { AUTH_DEV_ONLY_RULES, AUTH_SHAPE } from './auth-schema.js';
+import { corsOriginsSchema } from './cors-origins.js';
 import { isPlaintextPostgresUrl, isPlaintextRedisUrl } from './dev-only-rules.js';
+
+export { corsOriginsSchema } from './cors-origins.js';
 
 const TLS_RULES = { DATABASE_URL: isPlaintextPostgresUrl, REDIS_URL: isPlaintextRedisUrl };
 
@@ -29,29 +33,6 @@ const FIELD_ENCRYPTION_RULES = {
   BLIND_INDEX_KEY_FILE: (value: unknown) => value !== undefined,
 };
 
-/**
- * Comma-separated CORS origins. Playbook Step 5: an explicit allowlist, never a wildcard.
- */
-export const corsOriginsSchema = z
-  .string()
-  .transform((value) =>
-    value
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter((origin) => origin.length > 0),
-  )
-  .pipe(
-    z
-      .array(
-        z.url({ protocol: /^https?$/ }).refine(
-          // Zod runs refinements even after the URL check fails, so guard the parse.
-          (origin) => URL.canParse(origin) && new URL(origin).origin === origin,
-          'must be a bare origin',
-        ),
-      )
-      .min(1),
-  );
-
 const HTTP_SHAPE = {
   API_HOST: z.string().min(1).default('0.0.0.0'),
   CORS_ORIGINS: corsOriginsSchema,
@@ -69,10 +50,12 @@ export const apiEnvSchema = defineEnvSchema(
     DATABASE_URL: postgresUrlSchema,
     REDIS_URL: redisUrlSchema,
     ...FIELD_ENCRYPTION_SHAPE,
+    ...AUTH_SHAPE,
   },
   {
     ...TLS_RULES,
     ...FIELD_ENCRYPTION_RULES,
+    ...AUTH_DEV_ONLY_RULES,
     // Plain-http origins are for local development only.
     CORS_ORIGINS: (value: unknown) =>
       Array.isArray(value) && value.some((origin) => String(origin).startsWith('http:')),
