@@ -16,6 +16,46 @@ const MATH_RANDOM_EXEMPT_FILES = ['packages/simulator/**'];
 /** Folders where `console` output is the intended interface (CLAUDE.md: console banned elsewhere). */
 const CONSOLE_ALLOWED_FILES = ['**/scripts/**'];
 
+/**
+ * CLAUDE.md: only the wallet module writes ledger tables, and every balance change goes through
+ * postJournal. The schema owner (packages/db) and the wallet's own tests are the only other
+ * places allowed to name them.
+ */
+const LEDGER_OWNER_FILES = ['apps/api/src/wallet/**', 'apps/api/test/wallet/**', 'packages/db/**'];
+
+const LEDGER_TABLE_SQL = String.raw`/\b(from|join|into|update|table|truncate)\s+"?(ledger_accounts|ledger_entries|journals|balances)\b/i`;
+
+const LEDGER_MESSAGE =
+  'Ledger tables belong to the wallet module. Use postJournal and getBalances from apps/api/src/wallet.';
+
+const LEDGER_RESTRICTED_SYNTAX = [
+  { selector: `Literal[value=${LEDGER_TABLE_SQL}]`, message: LEDGER_MESSAGE },
+  { selector: `TemplateElement[value.raw=${LEDGER_TABLE_SQL}]`, message: LEDGER_MESSAGE },
+  {
+    // Prisma delegates for the ledger models, e.g. prisma.ledgerEntry or tx.balance.
+    selector:
+      'MemberExpression[object.name=/^(prisma|tx|db|client)$/i][property.name=/^(ledgerAccount|ledgerEntry|journal|balance)$/]',
+    message: LEDGER_MESSAGE,
+  },
+];
+
+const LEDGER_RESTRICTED_IMPORTS = {
+  paths: [
+    {
+      name: '@reef/db',
+      importNames: ['LedgerOwnerType', 'LedgerAccountKind'],
+      message: LEDGER_MESSAGE,
+    },
+  ],
+  patterns: [
+    {
+      // Wallet internals are private; outside code imports its barrel only.
+      regex: String.raw`/wallet/(?!index(\.js)?$)`,
+      message: 'Import the wallet module through its index only.',
+    },
+  ],
+};
+
 const MATH_RANDOM_RESTRICTION = {
   object: 'Math',
   property: 'random',
@@ -77,6 +117,13 @@ export function createReefConfig({ rootDir }) {
     {
       files: JS_FILES,
       extends: [tseslint.configs.disableTypeChecked],
+    },
+    {
+      ignores: [...LEDGER_OWNER_FILES, 'packages/config/src/eslint.test.ts'],
+      rules: {
+        'no-restricted-syntax': ['error', ...LEDGER_RESTRICTED_SYNTAX],
+        'no-restricted-imports': ['error', LEDGER_RESTRICTED_IMPORTS],
+      },
     },
     {
       files: MATH_RANDOM_EXEMPT_FILES,
