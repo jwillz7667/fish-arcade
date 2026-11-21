@@ -14,3 +14,8 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   esbuild: true
+
+# Security overrides for transitive dependencies. Remove each once the parent ships the fix.
+overrides:
+  # GHSA-7589-6fvf-x4pw (high, ReDoS) via prisma > @prisma/config > effect.
+  effect: 3.22.4
