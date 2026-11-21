@@ -29,6 +29,7 @@ const DEV_API_ENV: EnvSource = {
   GEO_PROVIDER: 'dev_stub',
   KYC_PROVIDER: 'dev_stub',
   KYC_WEBHOOK_SECRET: 'dev-kyc-webhook-secret-at-least-32-chars',
+  CHAIN_RISK_PROVIDER: 'dev_stub',
   ADMIN_LOGIN_MODE: 'dev_local',
   ADMIN_ALLOWED_EMAIL_DOMAINS: 'reef.local',
   ADMIN_WEB_ORIGIN: 'http://localhost:3001',
@@ -55,6 +56,8 @@ const PROD_API_ENV: EnvSource = {
   GEO_PROVIDER: 'dev_stub',
   KYC_PROVIDER: 'dev_stub',
   KYC_WEBHOOK_SECRET: `${SECRET}-${SECRET}-${SECRET}`,
+  CHAIN_RISK_PROVIDER: 'trm_labs',
+  TRM_API_KEY: SECRET,
   TRUST_PROXY_HOPS: '1',
   ADMIN_LOGIN_MODE: 'oidc',
   ADMIN_OIDC_ISSUER: 'https://sso.example.com',
@@ -132,6 +135,7 @@ describe('parseEnv', () => {
       'ADMIN_ALLOWED_EMAIL_DOMAINS',
       'ADMIN_WEB_ORIGIN',
       'BITCOIN_NETWORK',
+      'CHAIN_RISK_PROVIDER',
     ]);
   });
 
@@ -374,6 +378,33 @@ describe('app schemas', () => {
     expect(
       issuePaths(workersEnvSchema, { ...PROD_API_ENV, PRICE_SOURCES: 'kraken,coinbase' }),
     ).not.toContain('PRICE_SOURCES');
+  });
+
+  it('parses chain screening settings with their defaults', () => {
+    expect(parseEnv(workersEnvSchema, { ...DEV_API_ENV, API_PORT: undefined })).toMatchObject({
+      CHAIN_RISK_PROVIDER: 'dev_stub',
+      TRM_API_URL: 'https://api.trmlabs.com',
+      SCREENING_TIMEOUT_MS: 5_000,
+      OFAC_MAX_AGE_HOURS: 72,
+      OFAC_SDN_URL:
+        'https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.XML',
+      OFAC_IMPORT_INTERVAL_HOURS: 24,
+    });
+  });
+
+  it.each([
+    ['CHAIN_RISK_PROVIDER', { CHAIN_RISK_PROVIDER: 'chainalysis' }],
+    ['TRM_API_URL', { TRM_API_URL: 'http://api.trmlabs.com' }],
+    ['OFAC_SDN_URL', { OFAC_SDN_URL: 'http://www.treasury.gov/ofac/downloads/sdn.xml' }],
+    ['OFAC_MAX_AGE_HOURS', { OFAC_MAX_AGE_HOURS: '200' }],
+  ])('rejects an invalid %s', (path, extra) => {
+    expect(issuePaths(workersEnvSchema, { ...DEV_API_ENV, ...extra })).toContain(path);
+  });
+
+  it('rejects a placeholder TRM key in production', () => {
+    const env = { ...PROD_API_ENV, TRM_API_KEY: 'change-me-trm-api-key' };
+
+    expect(issuePaths(apiEnvSchema, env)).toContain('TRM_API_KEY');
   });
 
   it('parses the game-server env and requires TLS Redis in production', () => {

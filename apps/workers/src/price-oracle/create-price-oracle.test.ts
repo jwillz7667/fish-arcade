@@ -14,6 +14,7 @@ const BASE = {
   FIELD_ENCRYPTION_LOCAL_KEY_FILE: 'master.key',
   BLIND_INDEX_KEY_FILE: 'index.key',
   BITCOIN_NETWORK: 'regtest',
+  CHAIN_RISK_PROVIDER: 'dev_stub',
 };
 
 const logger = createLogger({ service: 'test', level: 'silent', context: new RequestContext() });
