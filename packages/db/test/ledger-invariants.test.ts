@@ -117,6 +117,12 @@ describe('append-only tables', () => {
     ['DELETE FROM ledger_accounts'],
     ['DELETE FROM balances'],
     ['TRUNCATE balances'],
+    ['DELETE FROM ofac_addresses'],
+    ['UPDATE ofac_addresses SET address = address'],
+    ['DELETE FROM ofac_imports'],
+    ['UPDATE ofac_imports SET sha256 = sha256'],
+    ['DELETE FROM chain_screenings'],
+    ['UPDATE chain_screenings SET sanctioned = false'],
   ])('reef_app cannot run: %s', async (sql) => {
     expect(await withClient('reef_app', (client) => statementError(client, sql))).toBe(
       PERMISSION_DENIED,
