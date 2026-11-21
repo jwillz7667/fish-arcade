@@ -26,6 +26,8 @@ const DEV_API_ENV: EnvSource = {
   EMAIL_PROVIDER: 'mailpit',
   SMS_PROVIDER: 'mailpit',
   GEO_PROVIDER: 'dev_stub',
+  KYC_PROVIDER: 'dev_stub',
+  KYC_WEBHOOK_SECRET: 'dev-kyc-webhook-secret-at-least-32-chars',
 };
 
 const PROD_API_ENV: EnvSource = {
@@ -46,11 +48,18 @@ const PROD_API_ENV: EnvSource = {
   EMAIL_PROVIDER: 'mailpit',
   SMS_PROVIDER: 'mailpit',
   GEO_PROVIDER: 'dev_stub',
+  KYC_PROVIDER: 'dev_stub',
+  KYC_WEBHOOK_SECRET: 'dev-kyc-webhook-secret-at-least-32-chars',
 };
 
-// Only dev-only messaging and geo providers exist so far, so production fails on these three
+// Only dev-only messaging, geo, and KYC providers exist so far, so production fails on these
 // until vendor adapters land. Other production checks are asserted without them.
-const MESSAGING_PROVIDERS = new Set(['EMAIL_PROVIDER', 'SMS_PROVIDER', 'GEO_PROVIDER']);
+const MESSAGING_PROVIDERS = new Set([
+  'EMAIL_PROVIDER',
+  'SMS_PROVIDER',
+  'GEO_PROVIDER',
+  'KYC_PROVIDER',
+]);
 
 function captureConfigError(schema: z.ZodType, source: EnvSource): ConfigError | undefined {
   try {
@@ -79,11 +88,12 @@ describe('parseEnv', () => {
     });
   });
 
-  it('accepts a production env that uses TLS, apart from the dev-only messaging providers', () => {
+  it('accepts a production env that uses TLS, apart from the dev-only providers', () => {
     expect(issuePaths(apiEnvSchema, PROD_API_ENV)).toEqual([
       'EMAIL_PROVIDER',
       'SMS_PROVIDER',
       'GEO_PROVIDER',
+      'KYC_PROVIDER',
     ]);
   });
 
@@ -102,6 +112,8 @@ describe('parseEnv', () => {
       'EMAIL_PROVIDER',
       'SMS_PROVIDER',
       'GEO_PROVIDER',
+      'KYC_PROVIDER',
+      'KYC_WEBHOOK_SECRET',
     ]);
   });
 
@@ -213,6 +225,7 @@ describe('dev-only settings in production', () => {
     ['SMS_PROVIDER', 'mailpit'],
     ['WEBAUTHN_ORIGINS', 'http://play.example.com'],
     ['GEO_PROVIDER', 'dev_stub'],
+    ['KYC_PROVIDER', 'dev_stub'],
   ])('rejects the dev-only auth setting %s in production', (key, value) => {
     expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: value })).toContain(key);
   });
