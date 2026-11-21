@@ -41,6 +41,20 @@ describe('zero-sum journals (spec §10.2)', () => {
     expect(failure).toEqual(UNBALANCED);
   });
 
+  it('rejects a journal that balances overall but not per currency', async () => {
+    const failure = await withClient('reef_app', async (client) => {
+      const gc = await createAccount(client, 'player', 'GC');
+      const sc = await createAccount(client, 'house', 'SC');
+      return commitError(client, async () => {
+        const journal = await createJournal(client);
+        await addEntry(client, journal, gc, 5n);
+        await addEntry(client, journal, sc, -5n);
+      });
+    });
+
+    expect(failure).toEqual(UNBALANCED);
+  });
+
   it('rejects a journal with a single entry or none', async () => {
     const failures = await withClient('reef_app', async (client) => {
       const house = await createAccount(client, 'house');
@@ -99,6 +113,10 @@ describe('append-only tables', () => {
     ['UPDATE audit_logs SET action = action'],
     ['DELETE FROM audit_logs'],
     ['TRUNCATE ledger_entries'],
+    ['UPDATE ledger_accounts SET owner_type = owner_type'],
+    ['DELETE FROM ledger_accounts'],
+    ['DELETE FROM balances'],
+    ['TRUNCATE balances'],
   ])('reef_app cannot run: %s', async (sql) => {
     expect(await withClient('reef_app', (client) => statementError(client, sql))).toBe(
       PERMISSION_DENIED,
@@ -118,6 +136,22 @@ describe('append-only tables', () => {
     });
 
     expect(codes).toEqual([PERMISSION_DENIED, PERMISSION_DENIED, PERMISSION_DENIED]);
+  });
+
+  it('keeps ledger accounts immutable and balance rows undeletable even for the migrator', async () => {
+    const codes = await withClient('reef_migrator', async (client) => {
+      const account = await createAccount(client, 'player');
+      return [
+        await statementError(
+          client,
+          "UPDATE ledger_accounts SET owner_type = 'house', owner_id = NULL WHERE id = $1",
+          [account],
+        ),
+        await statementError(client, 'DELETE FROM balances WHERE account_id = $1', [account]),
+      ];
+    });
+
+    expect(codes).toEqual([PERMISSION_DENIED, PERMISSION_DENIED]);
   });
 
   it('still lets reef_app append audit rows', async () => {

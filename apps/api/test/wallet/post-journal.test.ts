@@ -14,7 +14,7 @@ import fc from 'fast-check';
 import pg from 'pg';
 import { afterAll, describe, expect, inject, it } from 'vitest';
 
-import { getBalances, postJournal } from '../../src/wallet/index.js';
+import { getBalances, postJournal, postScBet } from '../../src/wallet/index.js';
 
 const pool = new pg.Pool({ connectionString: inject('databaseUrls').reef_app, max: 10 });
 afterAll(() => pool.end());
@@ -346,5 +346,89 @@ describe('ledger invariants under random journal sequences (fast-check)', () => 
       ),
       { numRuns: 20 },
     );
+  });
+});
+
+describe('postScBet: spend order under the balance lock (spec §10.2)', () => {
+  async function funded(bonus: bigint, redeemable: bigint): Promise<string> {
+    const userId = randomUUID();
+    if (bonus > 0n)
+      await postJournal(pool, transfer(promo, playerAccount(userId, 'SC_bonus'), bonus));
+    if (redeemable > 0n) {
+      await postJournal(pool, transfer(promo, playerAccount(userId, 'SC_redeemable'), redeemable));
+    }
+    return userId;
+  }
+
+  const bet = (userId: string, amount: bigint, key = randomUUID()) =>
+    postScBet(pool, {
+      type: 'sc_bet',
+      idempotencyKey: key,
+      userId,
+      bet: units(amount),
+      to: scResult,
+      createdBy: 'integration-test',
+    });
+
+  const scBalances = async (userId: string) => [
+    await balance(playerAccount(userId, 'SC_bonus')),
+    await balance(playerAccount(userId, 'SC_redeemable')),
+  ];
+
+  it('draws bonus first, then redeemable', async () => {
+    const userId = await funded(30n, 50n);
+
+    const posted = await bet(userId, 40n);
+
+    expect(posted.split).toEqual({ fromBonus: 30n, fromRedeemable: 10n });
+    expect(await scBalances(userId)).toEqual([0n, 40n]);
+  });
+
+  it('never draws redeemable SC while bonus remains, however bets race', async () => {
+    const userId = await funded(100n, 100n);
+
+    const results = await Promise.all(Array.from({ length: 10 }, () => bet(userId, 15n)));
+    const fromBonus = results.reduce((sum, result) => sum + result.split.fromBonus, 0n);
+
+    // 150 wagered: all 100 bonus first, then 50 redeemable. Reading balances outside the lock
+    // let racing bets each see the full bonus.
+    expect(fromBonus).toBe(100n);
+    expect(await scBalances(userId)).toEqual([0n, 50n]);
+  });
+
+  it('refuses a bet the SC balances cannot cover and moves nothing', async () => {
+    const userId = await funded(5n, 5n);
+
+    await expect(bet(userId, 11n)).rejects.toMatchObject({ code: ErrorCode.INSUFFICIENT_FUNDS });
+    expect(await scBalances(userId)).toEqual([5n, 5n]);
+  });
+
+  it('replays with the original split, and refuses the key for a different bet', async () => {
+    const userId = await funded(10n, 10n);
+    const key = randomUUID();
+    const first = await bet(userId, 15n, key);
+
+    const replay = await bet(userId, 15n, key);
+
+    expect(replay).toEqual({ ...first, isReplay: true });
+    await expect(bet(userId, 16n, key)).rejects.toMatchObject({
+      code: ErrorCode.IDEMPOTENCY_CONFLICT,
+    });
+    expect(await scBalances(userId)).toEqual([0n, 5n]);
+  });
+
+  it('refuses a destination that is not an SC account', async () => {
+    const userId = await funded(10n, 0n);
+
+    await expect(
+      postScBet(pool, {
+        type: 'sc_bet',
+        idempotencyKey: randomUUID(),
+        userId,
+        bet: units(5n),
+        to: issued,
+        createdBy: 'integration-test',
+      }),
+    ).rejects.toMatchObject({ code: ErrorCode.VALIDATION_FAILED });
   });
 });

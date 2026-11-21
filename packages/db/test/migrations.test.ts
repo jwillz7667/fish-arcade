@@ -20,6 +20,7 @@ describe('migrations on an empty database', () => {
       ['admin_auth', true],
       ['admin_oidc_subject', true],
       ['kyc_sanctions_clearance', true],
+      ['ledger_hardening', true],
     ]);
   });
 
