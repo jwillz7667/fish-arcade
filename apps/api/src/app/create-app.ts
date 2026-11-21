@@ -106,6 +106,8 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
       'idempotency-key',
       'x-csrf-token',
       'x-request-id',
+      'x-reef-client',
+      'x-step-up-code',
     ],
     exposedHeaders: ['x-request-id', 'retry-after', 'idempotent-replayed'],
     maxAge: 600,

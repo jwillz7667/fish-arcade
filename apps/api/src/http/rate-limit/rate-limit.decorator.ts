@@ -17,12 +17,13 @@ export const RATE_LIMIT_RULE = 'reef:rate-limit';
 export const SKIP_RATE_LIMIT = 'reef:skip-rate-limit';
 
 /**
- * Adds a per-route limit, e.g. `@RateLimit({ limit: 5, windowSeconds: 60 })` on login.
+ * Adds a per-route limit, e.g. `@RateLimit({ limit: 5, windowSeconds: 60 })` on login. On a
+ * controller it applies to every route without its own rule.
  *
  * @param rule Limit, window, and subject.
- * @returns A method decorator.
+ * @returns A method or class decorator.
  */
-export const RateLimit = (rule: RateLimitRule): MethodDecorator =>
+export const RateLimit = (rule: RateLimitRule): MethodDecorator & ClassDecorator =>
   SetMetadata(RATE_LIMIT_RULE, rule);
 
 /**

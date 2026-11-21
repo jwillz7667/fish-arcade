@@ -22,7 +22,7 @@
     "db:roles": "pnpm --filter @reef/db db:roles",
     "db:migrate": "pnpm --filter @reef/db db:migrate",
     "db:seed": "pnpm --filter @reef/db db:seed",
-    "keys:dev": "pnpm --filter @reef/crypto-fields keys:dev"
+    "keys:dev": "pnpm --filter @reef/crypto-fields keys:dev && pnpm --filter @reef/api keys:dev"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

@@ -52,6 +52,39 @@ If a concurrent call with the same key commits first, the unique-index violation
 
 `getBalances(pool, accounts)` reads current balances, with zero for accounts never posted to.
 
+## Player auth (`src/auth`, Step 6, spec §5.1)
+
+Every route needs a valid access token unless it is marked `@Public()`: the global `AuthGuard` denies by default.
+
+| Endpoint (`/v1/auth/…`)                            | Auth                                  | What it does                                                                                    |
+| -------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `POST signup`                                      | public, Turnstile                     | Sends a 6-digit code to an email or E.164 phone. Same response whether or not an account exists |
+| `POST otp/verify`, `POST otp/resend`               | public                                | Checks the code and returns a 15-minute signup ticket; resends after 60 s                       |
+| `POST signup/passkey-options`                      | public, ticket                        | WebAuthn registration options bound to the ticket                                               |
+| `POST signup/complete`                             | public, ticket                        | Profile (18+) plus password or passkey; creates the account and signs it in                     |
+| `POST login`, `POST login/mfa`                     | public                                | Password, then a TOTP or recovery code when 2FA is on                                           |
+| `POST passkey/options`, `passkey/login`            | public                                | Discoverable-credential passkey login (no account named, so nothing to enumerate)               |
+| `POST refresh`, `POST logout`                      | public, refresh token                 | Rotate the refresh token; end the session                                                       |
+| `GET session`                                      | token                                 | The current session: user, login time, methods, whether 2FA is on                               |
+| `POST 2fa/totp/setup`, `…/confirm`                 | token, recent login                   | Enrol TOTP; confirm returns 10 recovery codes once                                              |
+| `POST 2fa/totp/disable`                            | token, step-up                        | Turn 2FA off and sign out other sessions                                                        |
+| `POST passkeys/options`, `POST passkeys`           | token, recent login (+2FA code if on) | Add a passkey                                                                                   |
+| `POST contact`, `contact/verify`, `contact/resend` | token, step-up (start only)           | Change email or phone, proven by a code to the new address; signs out other sessions            |
+
+**Tokens.** Access tokens are 10-minute Ed25519 JWTs (`typ: at+jwt`, `kid` for rotation) carrying `sub`, `sid`, `auth_time`, and `amr`. Refresh tokens are opaque 256-bit values stored as SHA-256 hashes, single-use, and rotated on every refresh. Presenting a spent refresh token revokes its whole session (token family), and revoked sessions are cached in Redis so their access tokens stop working at once. Sessions end 30 days after login (`AUTH_REFRESH_TTL_DAYS`); refresh never moves `auth_time`.
+
+**Browsers and native apps.** Browsers get `__Host-reef_at` (access), `__Secure-reef_rt` (refresh, path `/v1/auth`), and a readable `__Host-reef_csrf`, all `Secure; SameSite=Lax`, the first two `HttpOnly`; tokens never appear in the body. Cookie-authenticated writes, refresh, and logout must send the CSRF token in `X-CSRF-Token`: an HMAC of the session ID, so it cannot be forged or planted from a sibling subdomain. Native apps send `X-Reef-Client: mobile`, get tokens in the body, and use `Authorization: Bearer`, which needs no CSRF token.
+
+**Codes and passwords.** OTPs are HMAC-hashed with a per-challenge binding, valid 10 minutes, 5 attempts (spent atomically before comparing), 60 s resend cooldown, 5 sends per challenge. Passwords are 12–128 characters, argon2id (OWASP baseline, upgraded on login when parameters change), and checked against HIBP's k-anonymity range API (`HIBP_ENABLED`; fails closed when HIBP is down). TOTP secrets are field-encrypted; accepted time steps are recorded so a code works once. Recovery codes are HMACs and single-use.
+
+**Enumeration and throttling.** Unknown accounts and wrong passwords return the same status, body, and timing (a dummy argon2 verification runs). Failures back off exponentially per identifier (5 free, then 1 s doubling to 15 min) and per IP (20 free), whether or not the account exists. Second-factor failures share a per-user backoff.
+
+**Step-up.** `@RequireStepUp()` needs a login under 5 minutes old plus a 2FA code in `X-Step-Up-Code`; players without 2FA get `MFA_NOT_ENROLLED`. Use it on adding a payout address and redeeming (Steps 14 and 15), changing contact details, and disabling 2FA. `@RequireRecentAuth()` guards adding a factor: a recent login, plus a code if 2FA is already on.
+
+**Providers.** Email and SMS go through `MessageSender`; Mailpit is the only implementation and is dev-only, so the API refuses to start with `NODE_ENV=production` until a vendor adapter exists. Turnstile is verified server-side with Cloudflare's siteverify; its test secrets are rejected in production. Every auth action writes an `audit_logs` row with IDs only.
+
+**Keys.** `pnpm keys:dev` writes `.keys/dev/auth-jwt.pem` and `.keys/dev/auth-hmac.key` (gitignored, never overwritten). Production sets `AUTH_JWT_PRIVATE_KEY` and `AUTH_HMAC_KEY` inline from Secrets Manager.
+
 ## Test
 
 ```sh
@@ -60,9 +93,5 @@ TEST_REDIS_URL=redis://127.0.0.1:6379/15 pnpm test:integration
 ```
 
 `TEST_REDIS_URL` must point at a disposable Redis database: the end-to-end suite flushes it.
-
-```
-
-```
 
 The integration tests cover success, failure, retry, and concurrency: the same key sent 10 times at once, 50 parallel transfers in both directions, and 20 racing debits against one balance. fast-check generates random journal sequences and checks the invariants against the real database: player balances are never negative, all balances sum to zero, each balance equals the sum of its entries, and replays are idempotent.

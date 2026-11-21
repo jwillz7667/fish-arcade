@@ -5,6 +5,12 @@ import type { Logger } from '@reef/logger';
 import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 
+import {
+  AUTH_CONTROLLERS,
+  AuthGuard,
+  createAuthProviders,
+  type AuthDependencies,
+} from '../auth/index.js';
 import { HealthController } from '../health/health.controller.js';
 import { DomainExceptionFilter } from '../http/domain-exception.filter.js';
 import { IdempotencyInterceptor } from '../http/idempotency/idempotency.interceptor.js';
@@ -20,6 +26,8 @@ export interface AppDependencies {
   readonly pool: Pool;
   readonly redis: Redis;
   readonly logger: Logger;
+  /** Keys and third-party providers for player auth. */
+  readonly auth: AuthDependencies;
   /** Extra controllers, for feature modules added in later steps and for tests. */
   readonly controllers?: readonly Type[];
 }
@@ -34,7 +42,7 @@ export class AppModule {
   static register(deps: AppDependencies): DynamicModule {
     return {
       module: AppModule,
-      controllers: [HealthController, ...(deps.controllers ?? [])],
+      controllers: [HealthController, ...AUTH_CONTROLLERS, ...(deps.controllers ?? [])],
       providers: [
         { provide: API_ENV, useValue: deps.env },
         { provide: PG_POOL, useValue: deps.pool },
@@ -42,6 +50,9 @@ export class AppModule {
         { provide: LOGGER, useValue: deps.logger },
         { provide: RedisRateLimiter, useFactory: () => new RedisRateLimiter(deps.redis) },
         { provide: IdempotencyStore, useFactory: () => new IdempotencyStore(deps.redis) },
+        ...createAuthProviders(deps),
+        // Guards run in this order: authenticate first, so per-principal limits see the user.
+        { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_GUARD, useClass: RateLimitGuard },
         { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
         { provide: APP_FILTER, useClass: DomainExceptionFilter },
