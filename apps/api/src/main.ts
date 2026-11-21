@@ -6,7 +6,11 @@ import pg from 'pg';
 
 import { createApp } from './app/create-app.js';
 import { createAuthDependencies } from './auth/index.js';
-import { createGeoProvider, createKycProvider } from './compliance/index.js';
+import {
+  createChainRiskProvider,
+  createGeoProvider,
+  createKycProvider,
+} from './compliance/index.js';
 
 const env = loadEnv(apiEnvSchema);
 const requestContext = new RequestContext();
@@ -29,6 +33,14 @@ const auth = await createAuthDependencies(env).catch((error: unknown) => {
   process.stderr.write(formatConfigError(error));
   process.exit(1);
 });
+let chainRiskProvider: ReturnType<typeof createChainRiskProvider>;
+try {
+  chainRiskProvider = createChainRiskProvider(env, redis);
+} catch (error) {
+  if (!(error instanceof ConfigError)) throw error;
+  process.stderr.write(formatConfigError(error));
+  process.exit(1);
+}
 const app = await createApp({
   env,
   pool,
@@ -38,6 +50,7 @@ const app = await createApp({
   auth,
   geoProvider: createGeoProvider(env),
   kycProvider: createKycProvider(env, redis),
+  chainRiskProvider,
 });
 
 let isShuttingDown = false;

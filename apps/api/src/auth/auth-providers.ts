@@ -39,7 +39,8 @@ export const AUTH_CONTROLLERS: readonly Type[] = [
  *
  * @param input Env, pool, Redis, auth dependencies, the shared audit writer, and the
  *   jurisdiction service (signup checks the declared home state).
- * @returns Providers for the root module.
+ * @returns Providers for the root module, and the session service other modules use to end
+ *   sessions (the compliance freeze).
  */
 export function createAuthProviders(input: {
   env: ApiEnv;
@@ -48,7 +49,7 @@ export function createAuthProviders(input: {
   auth: AuthDependencies;
   audit: AuditWriter;
   jurisdictions: JurisdictionService;
-}): Provider[] {
+}): { providers: Provider[]; sessions: SessionService } {
   const { env, pool, redis, auth, audit, jurisdictions } = input;
   const { clock, keys, encryption } = auth;
   const accessTokens = new AccessTokenService(keys, clock);
@@ -125,7 +126,7 @@ export function createAuthProviders(input: {
   });
   const contact = new ContactChangeService({ pool, encryption, otp, sessions, audit });
 
-  return [
+  const providers: Provider[] = [
     { provide: AUTH_KEYS, useValue: keys },
     { provide: CLOCK, useValue: clock },
     { provide: AccessTokenService, useValue: accessTokens },
@@ -139,4 +140,5 @@ export function createAuthProviders(input: {
     { provide: ContactChangeService, useValue: contact },
     StepUpGuard,
   ];
+  return { providers, sessions };
 }

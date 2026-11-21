@@ -1,6 +1,8 @@
 import type { Provider, Type } from '@nestjs/common';
 import type { ApiEnv } from '@reef/config';
+import type { BlindIndexer } from '@reef/crypto-fields';
 import { ConfigError } from '@reef/errors';
+import { ChainScreener, createChainScreener, type ChainRiskProvider } from '@reef/screening';
 import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 
@@ -30,14 +32,17 @@ export interface ComplianceServices {
   readonly jurisdictions: JurisdictionService;
   readonly geo: GeoService;
   readonly kyc: KycService;
+  /** Sanctions and chain-risk screening (playbook Step 12) for deposits and payout addresses. */
+  readonly screener: ChainScreener;
   readonly providers: Provider[];
 }
 
 /**
- * Wires geolocation and the jurisdiction gate (playbook Step 7) from explicit dependencies.
+ * Wires geolocation and the jurisdiction gate (Step 7), KYC (Step 8), and chain screening
+ * (Step 12) from explicit dependencies.
  *
- * @param input Env, pool, Redis, the shared audit writer, clock, HMAC key, and the geo and KYC
- *   providers.
+ * @param input Env, pool, Redis, the shared audit writer, clock, HMAC key, the address blind
+ *   indexer, and the geo, KYC, and chain-risk providers.
  * @returns The services and their Nest providers.
  */
 export function createComplianceServices(input: {
@@ -49,6 +54,8 @@ export function createComplianceServices(input: {
   hmacKey: Buffer;
   geoProvider: GeoProvider;
   kycProvider: KycProvider;
+  chainRiskProvider: ChainRiskProvider;
+  blindIndexer: BlindIndexer;
 }): ComplianceServices {
   const jurisdictions = new JurisdictionService({
     pool: input.pool,
@@ -74,14 +81,24 @@ export function createComplianceServices(input: {
     audit: input.audit,
     clock: input.clock,
   });
+  const screener = createChainScreener({
+    settings: input.env,
+    provider: input.chainRiskProvider,
+    db: input.pool,
+    cache: input.redis,
+    indexAddress: (address) => input.blindIndexer.index(address, 'btc_address'),
+    now: () => input.clock.now(),
+  });
   return {
     jurisdictions,
     geo,
     kyc,
+    screener,
     providers: [
       { provide: JurisdictionService, useValue: jurisdictions },
       { provide: GeoService, useValue: geo },
       { provide: KycService, useValue: kyc },
+      { provide: ChainScreener, useValue: screener },
       JurisdictionGuard,
       KycGuard,
     ],

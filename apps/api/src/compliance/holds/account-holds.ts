@@ -1,7 +1,10 @@
 import type { Queryable } from '../../audit/audit-writer.js';
 
-/** What a hold blocks. Matches the `AccountHoldKind` enum. */
-export type AccountHoldKind = 'redemption';
+/**
+ * What a hold blocks. Matches the `AccountHoldKind` enum. `freeze` blocks everything: no
+ * session can start or refresh while one is active (playbook Step 12).
+ */
+export type AccountHoldKind = 'redemption' | 'freeze';
 
 /** SQL for `account_holds` and `aml_alerts`. Every value is a bound parameter. */
 export const accountHoldRepository = {

@@ -7,6 +7,7 @@ import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { apiEnvSchema, parseEnv, type ApiEnv, type EnvSource } from '@reef/config';
 import { ConflictError } from '@reef/errors';
 import { createLogger, RequestContext, type Logger } from '@reef/logger';
+import { DevStubChainRiskProvider } from '@reef/screening';
 import type { FastifyRequest } from 'fastify';
 import { Redis } from 'ioredis';
 import pg from 'pg';
@@ -185,6 +186,8 @@ export interface TestApp {
   readonly auth: TestAuth;
   /** The dev KYC vendor, for scripting outcomes and signed webhooks. */
   readonly kyc: DevStubKycProvider;
+  /** The dev chain-risk vendor, for scripting screening verdicts and outages. */
+  readonly chainRisk: DevStubChainRiskProvider;
   /** An `Authorization` header for a fresh access token, for routes that only need a principal. */
   bearerFor(userId: string): Promise<string>;
 }
@@ -211,6 +214,7 @@ export function testEnv(overrides: EnvSource = {}): EnvSource {
     GEO_PROVIDER: 'dev_stub',
     KYC_PROVIDER: 'dev_stub',
     KYC_WEBHOOK_SECRET: 'test-kyc-webhook-secret-0123456789abcdef',
+    CHAIN_RISK_PROVIDER: 'dev_stub',
     ADMIN_LOGIN_MODE: 'dev_local',
     BITCOIN_NETWORK: 'regtest',
     ADMIN_ALLOWED_EMAIL_DOMAINS: 'reef.test',
@@ -258,6 +262,7 @@ export async function buildTestApp(
   redis.on('error', () => undefined);
   const pool = new pg.Pool({ connectionString: parsed.DATABASE_URL, max: 5 });
   const kyc = new DevStubKycProvider(redis, parsed.KYC_WEBHOOK_SECRET);
+  const chainRisk = new DevStubChainRiskProvider(redis);
   const app = await createApp({
     env: parsed,
     pool,
@@ -267,6 +272,7 @@ export async function buildTestApp(
     auth: auth.deps,
     geoProvider: new DevStubGeoProvider(),
     kycProvider: kyc,
+    chainRiskProvider: chainRisk,
     controllers: [TestController, TestAdminController],
   });
   const accessTokens = app.get(AccessTokenService);
@@ -276,6 +282,7 @@ export async function buildTestApp(
     redis,
     auth,
     kyc,
+    chainRisk,
     bearerFor: async (userId) => {
       const { token } = await accessTokens.sign({
         userId,

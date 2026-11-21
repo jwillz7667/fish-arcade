@@ -35,7 +35,8 @@ const releaseHoldPayload = z.object({
 
 /**
  * Releases an account hold, such as the redemption hold after a KYC sanctions hit. Compliance
- * requests; a different compliance officer approves.
+ * requests; a different compliance officer approves. Releasing an account's last freeze hold
+ * also reactivates it, if the freeze had suspended it (playbook Step 12).
  */
 export const releaseAccountHold: ApprovalAction<z.infer<typeof releaseHoldPayload>> = {
   name: 'account_hold.release',
@@ -44,15 +45,25 @@ export const releaseAccountHold: ApprovalAction<z.infer<typeof releaseHoldPayloa
   payloadSchema: releaseHoldPayload,
   target: (payload) => ({ type: 'account_hold', id: payload.holdId }),
   execute: async (payload, { client, approverId }) => {
-    const { rows } = await client.query<{ user_id: string }>(
+    const { rows } = await client.query<{ user_id: string; kind: string }>(
       `UPDATE account_holds SET released_at = now(), released_by = $2
-        WHERE id = $1 AND released_at IS NULL RETURNING user_id`,
+        WHERE id = $1 AND released_at IS NULL RETURNING user_id, kind`,
       [payload.holdId, approverId],
     );
-    const userId = rows[0]?.user_id;
-    if (userId === undefined)
+    const [hold] = rows;
+    if (hold === undefined)
       throw new ConflictError({ message: 'Hold already released or unknown' });
-    return { userId };
+    if (hold.kind !== 'freeze') return { userId: hold.user_id };
+    const reactivated = await client.query(
+      `UPDATE users SET status = 'active', updated_at = now()
+        WHERE id = $1 AND status = 'suspended'
+          AND NOT EXISTS (
+            SELECT 1 FROM account_holds
+             WHERE user_id = $1 AND kind = 'freeze' AND released_at IS NULL
+          )`,
+      [hold.user_id],
+    );
+    return { userId: hold.user_id, reactivated: String((reactivated.rowCount ?? 0) > 0) };
   },
 };
 
