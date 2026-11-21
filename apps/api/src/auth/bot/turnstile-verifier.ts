@@ -21,24 +21,36 @@ const EXPECTED_ACTION = 'signup';
 const responseSchema = z.object({
   success: z.boolean(),
   action: z.string().optional(),
+  hostname: z.string().optional(),
   'error-codes': z.array(z.string()).default([]),
 });
 
+/** Where the widget may run, and whether the secret is a Cloudflare test secret. */
+export interface TurnstileOptions {
+  /** Hostnames of the player web app. A token solved on any other site is refused. */
+  readonly expectedHostnames: readonly string[];
+  /** Test secrets reply without an action or a real hostname, so those checks are skipped. */
+  readonly isTestSecret: boolean;
+}
+
 /**
  * Cloudflare Turnstile siteverify (playbook Step 6). Tokens are single-use and expire after
- * 300 seconds; Cloudflare enforces both. Fails closed when Cloudflare is unreachable.
+ * 300 seconds; Cloudflare enforces both. The reply must name the signup action and one of our
+ * hostnames, so a token solved for another action or on another site is refused. Fails closed
+ * when Cloudflare is unreachable.
  */
 export class TurnstileVerifier implements BotVerifier {
   constructor(
     private readonly secretKey: string,
+    private readonly options: TurnstileOptions,
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
   /**
    * @param token Widget token from the signup form.
    * @param ip Client IP.
-   * @throws ForbiddenError (BOT_CHECK_FAILED) when Cloudflare rejects the token or it was
-   *   issued for another action.
+   * @throws ForbiddenError (BOT_CHECK_FAILED) when Cloudflare rejects the token, or it was
+   *   issued for another action or on another hostname.
    * @throws DependencyUnavailableError when Cloudflare is unreachable or answers oddly.
    */
   async verify(token: string, ip: string | null): Promise<void> {
@@ -66,13 +78,26 @@ export class TurnstileVerifier implements BotVerifier {
         cause: error,
       });
     }
-    // Test-mode secrets return no action (or an empty one), so only a wrong action is refused.
-    const action = parsed.action ?? '';
-    const isWrongAction = action !== '' && action !== EXPECTED_ACTION;
-    if (!parsed.success || isWrongAction) {
+    if (!parsed.success) {
       throw new ForbiddenError({
         code: ErrorCode.BOT_CHECK_FAILED,
-        message: `Turnstile rejected the token: ${parsed['error-codes'].join(',') || 'action'}`,
+        message: `Turnstile rejected the token: ${parsed['error-codes'].join(',')}`,
+      });
+    }
+    if (this.options.isTestSecret) return;
+    if (parsed.action !== EXPECTED_ACTION) {
+      throw new ForbiddenError({
+        code: ErrorCode.BOT_CHECK_FAILED,
+        message: 'Turnstile token was issued for another action',
+      });
+    }
+    if (
+      parsed.hostname === undefined ||
+      !this.options.expectedHostnames.includes(parsed.hostname)
+    ) {
+      throw new ForbiddenError({
+        code: ErrorCode.BOT_CHECK_FAILED,
+        message: 'Turnstile token was solved on another hostname',
       });
     }
   }
