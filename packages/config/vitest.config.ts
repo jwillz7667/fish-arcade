@@ -1,8 +1,3 @@
-import { defineProject } from 'vitest/config';
+import { createVitestProject } from '@reef/config/vitest';
 
-export default defineProject({
-  test: {
-    name: 'config',
-    include: ['src/**/*.test.ts'],
-  },
-});
+export default createVitestProject('config');
