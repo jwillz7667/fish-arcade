@@ -458,7 +458,8 @@ model Balance {
   version   BigInt          @default(0)
   updatedAt DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  account LedgerAccount @relation(fields: [accountId, ownerType], references: [id, ownerType])
+  // Restrict, not cascade: ledger accounts are immutable (migration ledger_hardening).
+  account LedgerAccount @relation(fields: [accountId, ownerType], references: [id, ownerType], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([accountId, ownerType])
   @@map("balances")
