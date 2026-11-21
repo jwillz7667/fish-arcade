@@ -1,0 +1,55 @@
+name: Bitcoin regtest
+
+# The regtest end-to-end tests pull bitcoind, NBXplorer, and BTCPay images, so they run only
+# when Bitcoin code or its stack changes.
+on:
+  pull_request:
+    paths:
+      - 'packages/bitcoin/**'
+      - 'packages/money/**'
+      - 'docker-compose.btc.yml'
+      - '.github/workflows/bitcoin-regtest.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/bitcoin/**'
+      - 'packages/money/**'
+      - 'docker-compose.btc.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bitcoin-regtest-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  regtest:
+    name: BTCPay on regtest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Write a throwaway .env for the regtest stack
+        run: |
+          cp .env.example .env
+          sed -i "s/change-me-btc-rpc/$(openssl rand -hex 24)/; s/change-me-btcpay-postgres/$(openssl rand -hex 24)/" .env
+      - run: pnpm btc:up
+      - run: pnpm test:btc
+        env:
+          # Containers reach the runner through host.docker.internal (host-gateway).
+          BTC_TEST_WEBHOOK_BIND: 0.0.0.0
+      - name: BTCPay logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.btc.yml --env-file .env logs --tail 200 btcpayserver nbxplorer
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.btc.yml --env-file .env down -v
