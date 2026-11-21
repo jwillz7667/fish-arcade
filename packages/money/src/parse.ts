@@ -1,6 +1,16 @@
 import { ErrorCode, ValidationError } from '@reef/errors';
 
-import { cents, CENTS_PER_DOLLAR, units, UNITS_PER_COIN, type Cents, type Units } from './types.js';
+import {
+  cents,
+  CENTS_PER_DOLLAR,
+  sats,
+  SATS_PER_BTC,
+  units,
+  UNITS_PER_COIN,
+  type Cents,
+  type Sats,
+  type Units,
+} from './types.js';
 
 // Whole part capped at 15 digits: comfortably above any real balance, and it bounds the input.
 const WHOLE_PATTERN = /^(?:0|[1-9]\d{0,14})$/;
@@ -47,4 +57,16 @@ export function parseCoins(text: string): Units {
  */
 export function parseUsd(text: string): Cents {
   return cents(parseDecimal(text, CENTS_PER_DOLLAR, 2));
+}
+
+/**
+ * Parses a bitcoin amount such as `"0.00012345"` (as BTCPay and bitcoind report it) into
+ * satoshis, exactly. Rejects signs, exponents, separators, and more than 8 decimal places.
+ *
+ * @param text Decimal bitcoin amount.
+ * @returns The amount in satoshis.
+ * @throws ValidationError (INVALID_AMOUNT) when `text` is not a valid amount.
+ */
+export function parseBtc(text: string): Sats {
+  return sats(parseDecimal(text, SATS_PER_BTC, 8));
 }
