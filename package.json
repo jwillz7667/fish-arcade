@@ -17,7 +17,12 @@
     "format:check": "prettier --check .",
     "services:up": "docker compose -f docker-compose.services.yml --env-file .env up -d --wait",
     "services:down": "docker compose -f docker-compose.services.yml --env-file .env down",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:integration": "vitest run --config vitest.integration.config.ts --coverage",
+    "db:roles": "pnpm --filter @reef/db db:roles",
+    "db:migrate": "pnpm --filter @reef/db db:migrate",
+    "db:seed": "pnpm --filter @reef/db db:seed",
+    "keys:dev": "pnpm --filter @reef/crypto-fields keys:dev"
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.4",

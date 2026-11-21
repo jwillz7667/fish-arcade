@@ -1,0 +1,1110 @@
+// Spec §11 (core tables) and §22.5 (Bitcoin tables).
+//
+// Conventions
+// - Money is BigInt: coin units (1 coin = 1,000,000), cents, or sats, as the column name says.
+// - *_enc columns hold @reef/crypto-fields envelopes (ciphertext + key ID). *_bidx columns hold
+//   HMAC blind indexes for equality lookups on encrypted values.
+// - Invariants Prisma cannot express (zero-sum journals, append-only tables, non-negative
+//   player balances, role grants) live in raw SQL migrations after the init migration.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Shared enums
+// ---------------------------------------------------------------------------
+
+enum Currency {
+  GC
+  SC
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+  severe
+}
+
+enum BitcoinNetwork {
+  regtest
+  signet
+  mainnet
+}
+
+// ---------------------------------------------------------------------------
+// Players (spec §5.1, §11)
+// ---------------------------------------------------------------------------
+
+enum UserStatus {
+  active
+  suspended
+  closed
+  self_excluded
+}
+
+model User {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emailEnc     String?    @map("email_enc")
+  emailBidx    String?    @unique @map("email_bidx")
+  phoneEnc     String?    @map("phone_enc")
+  phoneBidx    String?    @unique @map("phone_bidx")
+  passwordHash String?    @map("password_hash")
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  profile         Profile?
+  devices         UserDevice[]
+  kycChecks       KycCheck[]
+  geoChecks       GeoCheck[]
+  purchases       Purchase[]
+  redemptions     Redemption[]
+  amoeRequests    AmoeRequest[]
+  bonusGrants     BonusGrant[]
+  tableSessions   TableSession[]
+  jackpotWins     JackpotWin[]
+  referral        Referral?
+  rgLimits        RgLimit[]
+  exclusions      Exclusion[]
+  amlAlerts       AmlAlert[]
+  consents        Consent[]
+  supportTickets  SupportTicket[]
+  payoutAddresses PayoutAddress[]
+
+  @@map("users")
+}
+
+model Profile {
+  userId          String  @id @map("user_id") @db.Uuid
+  displayName     String  @map("display_name") @db.VarChar(32)
+  firstName       String? @map("first_name")
+  lastName        String? @map("last_name")
+  dobEnc          String? @map("dob_enc")
+  addressLine1Enc String? @map("address_line1_enc")
+  cityEnc         String? @map("city_enc")
+  // Plaintext on purpose: jurisdiction checks (spec §4.1) filter on it.
+  stateCode       String? @map("state_code") @db.Char(2)
+  zipEnc          String? @map("zip_enc")
+  vipLevel        Int     @default(0) @map("vip_level")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("profiles")
+}
+
+model Device {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fingerprintHash String   @unique @map("fingerprint_hash")
+  firstSeen       DateTime @default(now()) @map("first_seen") @db.Timestamptz(3)
+  lastSeen        DateTime @default(now()) @map("last_seen") @db.Timestamptz(3)
+
+  users UserDevice[]
+
+  @@map("devices")
+}
+
+model UserDevice {
+  userId   String @map("user_id") @db.Uuid
+  deviceId String @map("device_id") @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id])
+  device Device @relation(fields: [deviceId], references: [id])
+
+  @@id([userId, deviceId])
+  @@index([deviceId])
+  @@map("user_devices")
+}
+
+enum KycLevel {
+  light
+  full
+}
+
+enum KycStatus {
+  pending
+  passed
+  failed
+  review
+  sanctions_hit
+}
+
+model KycCheck {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  level     KycLevel
+  vendor    String
+  vendorRef String    @map("vendor_ref")
+  status    KycStatus @default(pending)
+  reasons   String[]  @default([])
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([vendor, vendorRef])
+  @@index([userId, createdAt])
+  @@map("kyc_checks")
+}
+
+enum GeoContext {
+  signup
+  login
+  purchase
+  play_sc
+  redeem
+}
+
+enum GeoResult {
+  allowed
+  blocked
+  error
+}
+
+model GeoCheck {
+  id        BigInt     @id @default(autoincrement())
+  userId    String?    @map("user_id") @db.Uuid
+  context   GeoContext
+  ip        String     @db.Inet
+  lat       Decimal?   @db.Decimal(9, 6)
+  lng       Decimal?   @db.Decimal(9, 6)
+  stateCode String?    @map("state_code") @db.Char(2)
+  vpnFlag   Boolean    @map("vpn_flag")
+  result    GeoResult
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("geo_checks")
+}
+
+enum JurisdictionMode {
+  S
+  P
+  X
+}
+
+// Spec §4.1: changes take effect at a scheduled time, so each state has a row per effective date.
+model Jurisdiction {
+  stateCode           String           @map("state_code") @db.Char(2)
+  effectiveFrom       DateTime         @map("effective_from") @db.Timestamptz(3)
+  mode                JurisdictionMode
+  minAge              Int              @map("min_age")
+  scRedemptionEnabled Boolean          @map("sc_redemption_enabled")
+  fishGamesEnabled    Boolean          @map("fish_games_enabled")
+  legalMemoRef        String           @map("legal_memo_ref")
+
+  @@id([stateCode, effectiveFrom])
+  @@map("jurisdictions")
+}
+
+// ---------------------------------------------------------------------------
+// Ledger (spec §10.2). Only the wallet module writes these tables.
+// ---------------------------------------------------------------------------
+
+enum LedgerOwnerType {
+  player
+  session
+  house
+  jackpot
+  redemption
+}
+
+enum LedgerAccountKind {
+  GC
+  SC_bonus
+  SC_redeemable
+  session_escrow
+  GC_issued
+  SC_promo
+  game_result
+  jackpot_pool
+  redemption_pending
+  redemption_paid
+}
+
+model LedgerAccount {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Spec §10.2 account name, e.g. "player:{id}:SC_bonus" or "house:GC_issued".
+  code      String            @unique
+  ownerType LedgerOwnerType   @map("owner_type")
+  ownerId   String?           @map("owner_id") @db.Uuid
+  currency  Currency
+  kind      LedgerAccountKind
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entries LedgerEntry[]
+  balance Balance?
+
+  // Target of the composite FK from balances, which copies owner_type for its CHECK constraint.
+  @@unique([id, ownerType])
+  @@index([ownerType, ownerId])
+  @@map("ledger_accounts")
+}
+
+model Journal {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type           String   @db.VarChar(64)
+  idempotencyKey String   @unique @map("idempotency_key")
+  // Hash of the journal payload, compared on idempotent replay (playbook Step 4).
+  requestHash    String   @map("request_hash")
+  refType        String?  @map("ref_type") @db.VarChar(64)
+  refId          String?  @map("ref_id")
+  createdBy      String   @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  entries LedgerEntry[]
+
+  @@index([refType, refId])
+  @@map("journals")
+}
+
+model LedgerEntry {
+  id        BigInt   @id @default(autoincrement())
+  journalId String   @map("journal_id") @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  amount    BigInt
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  journal Journal       @relation(fields: [journalId], references: [id])
+  account LedgerAccount @relation(fields: [accountId], references: [id])
+
+  @@index([journalId])
+  @@index([accountId, id])
+  @@map("ledger_entries")
+}
+
+model Balance {
+  accountId String          @id @map("account_id") @db.Uuid
+  ownerType LedgerOwnerType @map("owner_type")
+  amount    BigInt          @default(0)
+  version   BigInt          @default(0)
+  updatedAt DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  account LedgerAccount @relation(fields: [accountId, ownerType], references: [id, ownerType])
+
+  @@unique([accountId, ownerType])
+  @@map("balances")
+}
+
+// ---------------------------------------------------------------------------
+// Cashier and promotions (spec §5.3, §5.4)
+// ---------------------------------------------------------------------------
+
+model Package {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  priceCents BigInt  @map("price_cents")
+  gcAmount   BigInt  @map("gc_amount")
+  scBonus    BigInt  @map("sc_bonus")
+  active     Boolean @default(true)
+
+  purchases Purchase[]
+
+  @@map("packages")
+}
+
+enum PurchaseStatus {
+  pending
+  paid
+  expired
+  failed
+  refunded
+}
+
+// The spec's purchases.btc_invoice_id is modelled as btc_invoices.purchase_id (unique) to avoid
+// a circular foreign key.
+model Purchase {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  packageId   String         @map("package_id") @db.Uuid
+  amountCents BigInt         @map("amount_cents")
+  status      PurchaseStatus @default(pending)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user       User        @relation(fields: [userId], references: [id])
+  package    Package     @relation(fields: [packageId], references: [id])
+  btcInvoice BtcInvoice?
+
+  @@index([userId, createdAt])
+  @@map("purchases")
+}
+
+enum RedemptionMethod {
+  btc
+}
+
+enum RedemptionStatus {
+  requested
+  review
+  approved
+  rejected
+  processing
+  paid
+  failed
+  cancelled
+}
+
+model Redemption {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  scAmount    BigInt           @map("sc_amount")
+  amountCents BigInt           @map("amount_cents")
+  method      RedemptionMethod
+  payoutRef   String?          @map("payout_ref")
+  status      RedemptionStatus @default(requested)
+  reviewerId  String?          @map("reviewer_id") @db.Uuid
+  reason      String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     User       @relation(fields: [userId], references: [id])
+  reviewer AdminUser? @relation(fields: [reviewerId], references: [id])
+  payout   Payout?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("redemptions")
+}
+
+enum AmoeChannel {
+  mail
+  online
+}
+
+enum AmoeStatus {
+  received
+  granted
+  rejected
+}
+
+model AmoeRequest {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String      @map("user_id") @db.Uuid
+  channel     AmoeChannel
+  receivedAt  DateTime    @map("received_at") @db.Timestamptz(3)
+  scGranted   BigInt?     @map("sc_granted")
+  status      AmoeStatus  @default(received)
+  envelopeRef String?     @map("envelope_ref")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, receivedAt])
+  @@map("amoe_requests")
+}
+
+model Promotion {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String
+  rules    Json
+  // Coin units.
+  budget   BigInt?
+  startsAt DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt   DateTime @map("ends_at") @db.Timestamptz(3)
+
+  grants BonusGrant[]
+
+  @@map("promotions")
+}
+
+enum BonusGrantStatus {
+  active
+  completed
+  expired
+  revoked
+}
+
+model BonusGrant {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String           @map("user_id") @db.Uuid
+  promotionId         String?          @map("promotion_id") @db.Uuid
+  currency            Currency
+  amount              BigInt
+  playthroughMultiple Int              @default(1) @map("playthrough_multiple")
+  expiresAt           DateTime?        @map("expires_at") @db.Timestamptz(3)
+  status              BonusGrantStatus @default(active)
+
+  user      User       @relation(fields: [userId], references: [id])
+  promotion Promotion? @relation(fields: [promotionId], references: [id])
+
+  @@index([userId, status])
+  @@map("bonus_grants")
+}
+
+// ---------------------------------------------------------------------------
+// Games (spec §6, §7, §10.3)
+// ---------------------------------------------------------------------------
+
+enum GameType {
+  fish
+  slot
+  keno
+}
+
+enum GameStatus {
+  draft
+  active
+  disabled
+}
+
+model Game {
+  id     String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug   String     @unique
+  type   GameType
+  status GameStatus @default(draft)
+
+  versions GameVersion[]
+  rooms    Room[]
+
+  @@map("games")
+}
+
+model MathConfig {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gameType  GameType @map("game_type")
+  baseRtpBp Int      @map("base_rtp_bp")
+  jackpotBp Int      @map("jackpot_bp")
+  params    Json
+  hash      String   @unique
+  certRef   String?  @map("cert_ref")
+
+  versions GameVersion[]
+  rooms    Room[]
+
+  @@map("math_configs")
+}
+
+model GameVersion {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gameId       String @map("game_id") @db.Uuid
+  version      String
+  mathConfigId String @map("math_config_id") @db.Uuid
+  bundleUrl    String @map("bundle_url")
+  assetHash    String @map("asset_hash")
+
+  game       Game       @relation(fields: [gameId], references: [id])
+  mathConfig MathConfig @relation(fields: [mathConfigId], references: [id])
+
+  @@unique([gameId, version])
+  @@map("game_versions")
+}
+
+enum RoomStatus {
+  open
+  maintenance
+  closed
+}
+
+model Room {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gameId       String     @map("game_id") @db.Uuid
+  tier         String
+  currency     Currency
+  // Coin units per bet level.
+  betLevels    BigInt[]   @map("bet_levels")
+  mathConfigId String     @map("math_config_id") @db.Uuid
+  seats        Int
+  status       RoomStatus @default(open)
+
+  game       Game           @relation(fields: [gameId], references: [id])
+  mathConfig MathConfig     @relation(fields: [mathConfigId], references: [id])
+  sessions   TableSession[]
+
+  @@index([gameId, status])
+  @@map("rooms")
+}
+
+model TableSession {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  roomId            String    @map("room_id") @db.Uuid
+  currency          Currency
+  buyIn             BigInt    @map("buy_in")
+  betsTotal         BigInt    @default(0) @map("bets_total")
+  winsTotal         BigInt    @default(0) @map("wins_total")
+  finalBalance      BigInt?   @map("final_balance")
+  lastCheckpointSeq BigInt    @default(0) @map("last_checkpoint_seq")
+  startedAt         DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt           DateTime? @map("ended_at") @db.Timestamptz(3)
+
+  user         User                @relation(fields: [userId], references: [id])
+  room         Room                @relation(fields: [roomId], references: [id])
+  archiveIndex RoundArchiveIndex[]
+  jackpotWins  JackpotWin[]
+
+  @@index([userId, startedAt])
+  @@index([roomId, endedAt])
+  @@map("table_sessions")
+}
+
+model RoundArchiveIndex {
+  sessionId String @map("session_id") @db.Uuid
+  seqStart  BigInt @map("seq_start")
+  seqEnd    BigInt @map("seq_end")
+  objectKey String @map("object_key")
+
+  session TableSession @relation(fields: [sessionId], references: [id])
+
+  @@id([sessionId, seqStart])
+  @@map("round_archive_index")
+}
+
+enum JackpotStatus {
+  active
+  hit
+  paused
+}
+
+model Jackpot {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tier         String
+  currency     Currency
+  seed         BigInt
+  cap          BigInt
+  current      BigInt
+  hitPointHash String        @map("hit_point_hash")
+  // Revealed only after the hit (spec §7.3).
+  hitPoint     BigInt?       @map("hit_point")
+  status       JackpotStatus @default(active)
+  resetAt      DateTime?     @map("reset_at") @db.Timestamptz(3)
+
+  wins JackpotWin[]
+
+  @@unique([tier, currency])
+  @@map("jackpots")
+}
+
+model JackpotWin {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jackpotId String   @map("jackpot_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  sessionId String?  @map("session_id") @db.Uuid
+  amount    BigInt
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  jackpot Jackpot       @relation(fields: [jackpotId], references: [id])
+  user    User          @relation(fields: [userId], references: [id])
+  session TableSession? @relation(fields: [sessionId], references: [id])
+
+  @@index([jackpotId, createdAt])
+  @@index([userId])
+  @@map("jackpot_wins")
+}
+
+// ---------------------------------------------------------------------------
+// Affiliates (spec §14.1)
+// ---------------------------------------------------------------------------
+
+enum AffiliateStatus {
+  pending
+  active
+  suspended
+  closed
+}
+
+enum AffiliateDealType {
+  cpa
+  revshare
+  hybrid
+}
+
+model Affiliate {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId   String?           @map("parent_id") @db.Uuid
+  code       String            @unique
+  status     AffiliateStatus   @default(pending)
+  dealType   AffiliateDealType @map("deal_type")
+  revshareBp Int?              @map("revshare_bp")
+  cpaCents   BigInt?           @map("cpa_cents")
+
+  parent      Affiliate?   @relation("AffiliateTree", fields: [parentId], references: [id])
+  children    Affiliate[]  @relation("AffiliateTree")
+  referrals   Referral[]
+  commissions Commission[]
+
+  @@index([parentId])
+  @@map("affiliates")
+}
+
+model Referral {
+  userId       String   @id @map("user_id") @db.Uuid
+  affiliateId  String   @map("affiliate_id") @db.Uuid
+  clickId      String?  @map("click_id")
+  attributedAt DateTime @default(now()) @map("attributed_at") @db.Timestamptz(3)
+
+  user      User      @relation(fields: [userId], references: [id])
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
+
+  @@index([affiliateId])
+  @@map("referrals")
+}
+
+enum CommissionStatus {
+  pending
+  approved
+  paid
+  void
+}
+
+model Commission {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  affiliateId String           @map("affiliate_id") @db.Uuid
+  // Calendar month, "YYYY-MM".
+  period      String           @db.Char(7)
+  amountCents BigInt           @map("amount_cents")
+  status      CommissionStatus @default(pending)
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id])
+
+  @@unique([affiliateId, period])
+  @@map("commissions")
+}
+
+// ---------------------------------------------------------------------------
+// Back office (spec §13)
+// ---------------------------------------------------------------------------
+
+enum AdminUserStatus {
+  active
+  disabled
+}
+
+model AdminUser {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Staff work email from SSO. Not player PII, so it is stored plainly for OIDC matching.
+  email      String          @unique
+  mfaEnabled Boolean         @default(false) @map("mfa_enabled")
+  status     AdminUserStatus @default(active)
+
+  roles               AdminUserRole[]
+  reviewedRedemptions Redemption[]
+  requestedApprovals  Approval[]      @relation("ApprovalRequester")
+  decidedApprovals    Approval[]      @relation("ApprovalApprover")
+  assignedTickets     SupportTicket[]
+
+  @@map("admin_users")
+}
+
+model Role {
+  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name String @unique
+
+  admins AdminUserRole[]
+
+  @@map("roles")
+}
+
+model AdminUserRole {
+  adminUserId String @map("admin_user_id") @db.Uuid
+  roleId      String @map("role_id") @db.Uuid
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+  role      Role      @relation(fields: [roleId], references: [id])
+
+  @@id([adminUserId, roleId])
+  @@index([roleId])
+  @@map("admin_user_roles")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+  executed
+}
+
+model Approval {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  action      String
+  payload     Json
+  requestedBy String         @map("requested_by") @db.Uuid
+  approvedBy  String?        @map("approved_by") @db.Uuid
+  status      ApprovalStatus @default(pending)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  // Playbook Step 9: approvals expire after 24 hours.
+  expiresAt   DateTime       @map("expires_at") @db.Timestamptz(3)
+  decidedAt   DateTime?      @map("decided_at") @db.Timestamptz(3)
+
+  requester AdminUser  @relation("ApprovalRequester", fields: [requestedBy], references: [id])
+  approver  AdminUser? @relation("ApprovalApprover", fields: [approvedBy], references: [id])
+
+  @@index([status, expiresAt])
+  @@map("approvals")
+}
+
+enum ActorType {
+  player
+  admin
+  system
+}
+
+// Append-only (raw SQL trigger).
+model AuditLog {
+  id         BigInt    @id @default(autoincrement())
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @map("actor_id")
+  action     String
+  targetType String?   @map("target_type")
+  targetId   String?   @map("target_id")
+  before     Json?
+  after      Json?
+  ip         String?   @db.Inet
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorType, actorId, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Responsible gaming, AML, rules, support (spec §5.6, §5.7, §15)
+// ---------------------------------------------------------------------------
+
+enum RgLimitType {
+  deposit
+  loss
+  wager
+  session_time
+}
+
+enum RgLimitPeriod {
+  day
+  week
+  month
+}
+
+model RgLimit {
+  userId            String        @map("user_id") @db.Uuid
+  type              RgLimitType
+  period            RgLimitPeriod
+  // Cents for deposit, coin units for loss and wager, minutes for session_time.
+  amount            BigInt
+  effectiveAt       DateTime      @map("effective_at") @db.Timestamptz(3)
+  pendingIncreaseAt DateTime?     @map("pending_increase_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, type, period])
+  @@map("rg_limits")
+}
+
+enum ExclusionType {
+  timeout
+  self_exclusion
+}
+
+model Exclusion {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  type      ExclusionType
+  // Null means permanent.
+  until     DateTime?     @db.Timestamptz(3)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, until])
+  @@map("exclusions")
+}
+
+enum AmlSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AmlAlertStatus {
+  open
+  investigating
+  escalated
+  closed
+}
+
+model AmlAlert {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  rule      String
+  severity  AmlSeverity
+  status    AmlAlertStatus @default(open)
+  notes     String?
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status, severity, createdAt])
+  @@index([userId])
+  @@map("aml_alerts")
+}
+
+model RulesVersion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  docType     String   @map("doc_type")
+  version     String
+  url         String
+  effectiveAt DateTime @map("effective_at") @db.Timestamptz(3)
+
+  consents Consent[]
+
+  @@unique([docType, version])
+  @@map("rules_versions")
+}
+
+model Consent {
+  userId         String   @map("user_id") @db.Uuid
+  rulesVersionId String   @map("rules_version_id") @db.Uuid
+  acceptedAt     DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+  ip             String   @db.Inet
+
+  user         User         @relation(fields: [userId], references: [id])
+  rulesVersion RulesVersion @relation(fields: [rulesVersionId], references: [id])
+
+  @@id([userId, rulesVersionId])
+  @@map("consents")
+}
+
+enum SupportTicketStatus {
+  open
+  pending
+  resolved
+  closed
+}
+
+model SupportTicket {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String              @map("user_id") @db.Uuid
+  category   String
+  status     SupportTicketStatus @default(open)
+  assigneeId String?             @map("assignee_id") @db.Uuid
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user     User       @relation(fields: [userId], references: [id])
+  assignee AdminUser? @relation(fields: [assigneeId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("support_tickets")
+}
+
+// ---------------------------------------------------------------------------
+// Bitcoin (spec §22.5)
+// ---------------------------------------------------------------------------
+
+enum BtcInvoiceStatus {
+  new
+  processing
+  settled
+  expired
+  invalid
+}
+
+model BtcInvoice {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseId      String           @unique @map("purchase_id") @db.Uuid
+  btcpayInvoiceId String           @unique @map("btcpay_invoice_id")
+  amountCents     BigInt           @map("amount_cents")
+  rateCentsPerBtc BigInt           @map("rate_cents_per_btc")
+  btcDueSats      BigInt           @map("btc_due_sats")
+  status          BtcInvoiceStatus @default(new)
+  expiresAt       DateTime         @map("expires_at") @db.Timestamptz(3)
+  settledAt       DateTime?        @map("settled_at") @db.Timestamptz(3)
+
+  purchase Purchase     @relation(fields: [purchaseId], references: [id])
+  deposits BtcDeposit[]
+
+  @@index([status, expiresAt])
+  @@map("btc_invoices")
+}
+
+enum BtcDepositStatus {
+  seen
+  confirmed
+  credited
+  held
+  frozen
+}
+
+model BtcDeposit {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId     String           @map("invoice_id") @db.Uuid
+  txid          String           @db.Char(64)
+  vout          Int
+  sats          BigInt
+  confirmations Int              @default(0)
+  riskLevel     RiskLevel?       @map("risk_level")
+  status        BtcDepositStatus @default(seen)
+
+  invoice BtcInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@unique([txid, vout])
+  @@index([invoiceId])
+  @@index([status])
+  @@map("btc_deposits")
+}
+
+enum PayoutAddressType {
+  p2wpkh
+  p2tr
+  p2wsh
+  p2sh
+  p2pkh
+}
+
+enum PayoutAddressStatus {
+  pending
+  active
+  rejected
+  disabled
+}
+
+model PayoutAddress {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String              @map("user_id") @db.Uuid
+  addressEnc     String              @map("address_enc")
+  addressBidx    String              @map("address_bidx")
+  addressType    PayoutAddressType   @map("address_type")
+  network        BitcoinNetwork
+  status         PayoutAddressStatus @default(pending)
+  verifiedAt     DateTime?           @map("verified_at") @db.Timestamptz(3)
+  usableAfter    DateTime?           @map("usable_after") @db.Timestamptz(3)
+  lastScreenedAt DateTime?           @map("last_screened_at") @db.Timestamptz(3)
+  riskLevel      RiskLevel?          @map("risk_level")
+
+  user    User     @relation(fields: [userId], references: [id])
+  payouts Payout[]
+
+  @@unique([userId, addressBidx])
+  @@index([addressBidx])
+  @@map("payout_addresses")
+}
+
+enum PayoutStatus {
+  queued
+  held
+  batched
+  broadcast
+  confirmed
+  failed
+}
+
+model Payout {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  redemptionId    String       @unique @map("redemption_id") @db.Uuid
+  addressId       String       @map("address_id") @db.Uuid
+  amountCents     BigInt       @map("amount_cents")
+  // Set at send time (spec §22.3).
+  rateCentsPerBtc BigInt?      @map("rate_cents_per_btc")
+  sats            BigInt?
+  batchId         String?      @map("batch_id") @db.Uuid
+  status          PayoutStatus @default(queued)
+
+  redemption Redemption    @relation(fields: [redemptionId], references: [id])
+  address    PayoutAddress @relation(fields: [addressId], references: [id])
+  batch      PayoutBatch?  @relation(fields: [batchId], references: [id])
+
+  @@index([status])
+  @@index([batchId])
+  @@map("payouts")
+}
+
+enum PayoutBatchStatus {
+  building
+  signed
+  broadcast
+  confirmed
+  failed
+}
+
+model PayoutBatch {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  txid         String?           @unique @db.Char(64)
+  feeSats      BigInt?           @map("fee_sats")
+  // A fee rate, not an amount: exact decimal sat/vB.
+  feeRateSatVb Decimal?          @map("fee_rate_sat_vb") @db.Decimal(12, 3)
+  status       PayoutBatchStatus @default(building)
+  broadcastAt  DateTime?         @map("broadcast_at") @db.Timestamptz(3)
+  confirmedAt  DateTime?         @map("confirmed_at") @db.Timestamptz(3)
+  rbfCount     Int               @default(0) @map("rbf_count")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  payouts Payout[]
+
+  @@index([status])
+  @@map("payout_batches")
+}
+
+model PriceSnapshot {
+  id          BigInt   @id @default(autoincrement())
+  centsPerBtc BigInt   @map("cents_per_btc")
+  sources     Json
+  takenAt     DateTime @map("taken_at") @db.Timestamptz(3)
+
+  @@index([takenAt])
+  @@map("price_snapshots")
+}
+
+enum ScreeningSubjectType {
+  address
+  tx
+}
+
+model ChainScreening {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  subjectType ScreeningSubjectType @map("subject_type")
+  // A txid for tx subjects. For address subjects, the address blind index, never the address.
+  subject     String
+  provider    String
+  riskLevel   RiskLevel            @map("risk_level")
+  categories  String[]             @default([])
+  sanctioned  Boolean
+  screenedAt  DateTime             @default(now()) @map("screened_at") @db.Timestamptz(3)
+
+  @@index([subjectType, subject, screenedAt])
+  @@map("chain_screenings")
+}
+
+model OfacAddress {
+  address     String
+  listVersion String   @map("list_version")
+  addedAt     DateTime @default(now()) @map("added_at") @db.Timestamptz(3)
+
+  @@id([address, listVersion])
+  @@index([address])
+  @@map("ofac_addresses")
+}
+
+enum TreasuryEventType {
+  refill_request
+  refill_done
+  sweep_to_cold
+}
+
+model TreasuryEvent {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type      TreasuryEventType
+  sats      BigInt
+  txid      String?           @db.Char(64)
+  createdBy String            @map("created_by")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([type, createdAt])
+  @@map("treasury_events")
+}
+
+model SystemFlag {
+  key       String   @id
+  value     Json
+  updatedBy String   @map("updated_by")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("system_flags")
+}
