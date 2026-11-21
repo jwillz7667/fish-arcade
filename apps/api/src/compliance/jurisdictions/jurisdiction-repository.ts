@@ -55,6 +55,25 @@ export const jurisdictionRepository = {
     };
   },
 
+  /** Every state's rule in force at `at`, one row per state. */
+  async listAt(client: Queryable, at: Date): Promise<JurisdictionRule[]> {
+    const { rows } = await client.query<RuleRow>(
+      `SELECT DISTINCT ON (state_code) state_code, mode, min_age, sc_redemption_enabled,
+              fish_games_enabled, effective_from
+         FROM jurisdictions WHERE effective_from <= $1
+        ORDER BY state_code, effective_from DESC`,
+      [at],
+    );
+    return rows.map((row) => ({
+      stateCode: row.state_code,
+      mode: row.mode,
+      minAge: row.min_age,
+      scRedemptionEnabled: row.sc_redemption_enabled,
+      fishGamesEnabled: row.fish_games_enabled,
+      effectiveFrom: row.effective_from,
+    }));
+  },
+
   async insert(client: Queryable, rule: NewJurisdictionRule): Promise<void> {
     await client.query(
       `INSERT INTO jurisdictions

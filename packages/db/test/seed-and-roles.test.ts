@@ -6,6 +6,7 @@ import { bootstrapDatabaseRoles, claimPublicSchema } from '../src/roles.js';
 import {
   ADMIN_ROLE_NAMES,
   DEFAULT_SYSTEM_FLAGS,
+  DEV_ADMIN_EMAIL,
   SPEC_BLOCKED_STATES,
   seedReferenceData,
   US_STATE_CODES,
@@ -47,6 +48,19 @@ describe('seedReferenceData', () => {
     expect(
       rows.every((row) => !row.scRedemptionEnabled && row.legalMemoRef.startsWith('DEV-ONLY')),
     ).toBe(true);
+  });
+
+  it('seeds one dev super admin, idempotently', async () => {
+    await seedReferenceData(prisma, 'development');
+    await seedReferenceData(prisma, 'development');
+
+    const admins = await prisma.adminUser.findMany({
+      include: { roles: { include: { role: true } } },
+    });
+
+    expect(admins.map((admin) => [admin.email, admin.roles.map((link) => link.role.name)])).toEqual(
+      [[DEV_ADMIN_EMAIL, ['super_admin']]],
+    );
   });
 
   it('refuses to run in production', async () => {

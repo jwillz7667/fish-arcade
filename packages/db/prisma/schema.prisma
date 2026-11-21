@@ -852,8 +852,42 @@ model AdminUser {
   requestedApprovals  Approval[]      @relation("ApprovalRequester")
   decidedApprovals    Approval[]      @relation("ApprovalApprover")
   assignedTickets     SupportTicket[]
+  mfa                 AdminMfa?
+  sessions            AdminSession[]
 
   @@map("admin_users")
+}
+
+// Staff TOTP (playbook Step 9: MFA is mandatory for every admin). Same shape as user_mfa.
+model AdminMfa {
+  adminUserId          String    @id @map("admin_user_id") @db.Uuid
+  totpSecretEnc        String?   @map("totp_secret_enc")
+  totpEnabledAt        DateTime? @map("totp_enabled_at") @db.Timestamptz(3)
+  totpLastTimeStep     Int?      @map("totp_last_time_step")
+  totpPendingSecretEnc String?   @map("totp_pending_secret_enc")
+  totpPendingCreatedAt DateTime? @map("totp_pending_created_at") @db.Timestamptz(3)
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@map("admin_mfa")
+}
+
+// Back office sessions (spec §13.3): opaque token stored as a SHA-256 hash, 30-minute idle
+// timeout via last_seen_at, and an absolute expiry.
+model AdminSession {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  tokenHash   String    @unique @map("token_hash")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt  DateTime  @map("last_seen_at") @db.Timestamptz(3)
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  ip          String    @db.Inet
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([adminUserId])
+  @@map("admin_sessions")
 }
 
 model Role {

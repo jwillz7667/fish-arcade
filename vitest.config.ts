@@ -55,6 +55,16 @@ export default defineConfig({
         'apps/api/src/compliance/**/*.guard.ts',
         'apps/api/src/compliance/holds/**',
         'apps/api/src/compliance/kyc/dev-stub-kyc-provider.ts',
+        // Back office services, routes, guard, and interceptor: covered by the admin end-to-end
+        // tests (including a fake OIDC provider). Permissions, masking, and diffs stay here.
+        'apps/api/src/admin/admin-providers.ts',
+        'apps/api/src/admin/**/*-service.ts',
+        'apps/api/src/admin/**/*.controller.ts',
+        'apps/api/src/admin/**/*.interceptor.ts',
+        'apps/api/src/admin/http/admin-cookies.ts',
+        'apps/api/src/admin/http/admin-decorators.ts',
+        'apps/api/src/admin/auth/oidc-client.ts',
+        'apps/api/src/admin/approvals/approval-actions.ts',
         'apps/api/src/shared/**',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],

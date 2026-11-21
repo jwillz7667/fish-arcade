@@ -117,9 +117,12 @@ export const DEV_JURISDICTIONS = US_STATE_CODES.map((stateCode) => {
   };
 });
 
+/** The dev-only back office login (playbook Step 9). It still has to enrol TOTP. */
+export const DEV_ADMIN_EMAIL = 'admin@reef.local';
+
 /**
- * Seeds reference data for local development: admin roles, system flags, and dev jurisdiction
- * rows. Idempotent: existing rows are left as they are.
+ * Seeds reference data for local development: admin roles, system flags, dev jurisdiction
+ * rows, and a super admin for the local login. Idempotent: existing rows are left as they are.
  *
  * @param prisma A client connected as reef_app.
  * @param nodeEnv Current NODE_ENV.
@@ -144,4 +147,14 @@ export async function seedReferenceData(prisma: PrismaClient, nodeEnv: string): 
     }),
     prisma.jurisdiction.createMany({ data: DEV_JURISDICTIONS, skipDuplicates: true }),
   ]);
+  const admin = await prisma.adminUser.upsert({
+    where: { email: DEV_ADMIN_EMAIL },
+    create: { email: DEV_ADMIN_EMAIL },
+    update: {},
+  });
+  const superAdmin = await prisma.role.findUniqueOrThrow({ where: { name: 'super_admin' } });
+  await prisma.adminUserRole.createMany({
+    data: [{ adminUserId: admin.id, roleId: superAdmin.id }],
+    skipDuplicates: true,
+  });
 }

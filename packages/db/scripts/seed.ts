@@ -10,7 +10,7 @@ const env = loadEnv(defineEnvSchema({ DATABASE_URL: postgresUrlSchema }));
 const prisma = createPrismaClient(env.DATABASE_URL);
 try {
   await seedReferenceData(prisma, env.NODE_ENV);
-  console.log('Seeded admin roles, system flags, and dev-only jurisdiction rows.');
+  console.log('Seeded admin roles, system flags, dev jurisdictions, and the dev admin.');
 } finally {
   await prisma.$disconnect();
 }
