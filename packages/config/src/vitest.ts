@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineProject, type UserWorkspaceConfig } from 'vitest/config';
 
 /**
@@ -10,8 +12,18 @@ export const SOURCE_CONDITION = '@reef/source';
 // require() inside CommonJS deps) or 'module' (bundler-only builds, such as the AWS SDK's).
 const CONDITIONS = [SOURCE_CONDITION, 'node', 'development|production'];
 
-const RESOLVE = {
-  resolve: { conditions: CONDITIONS },
+const PACKAGES_DIR = fileURLToPath(new URL('../../', import.meta.url));
+
+/**
+ * Resolve settings that make Vite load workspace packages from source. The alias covers code
+ * that runs outside a project's environment (such as globalSetup), where conditions are not
+ * applied; the conditions cover subpath exports. Spread into root configs too.
+ */
+export const SOURCE_RESOLVE = {
+  resolve: {
+    conditions: CONDITIONS,
+    alias: [{ find: /^@reef\/([a-z0-9-]+)$/, replacement: `${PACKAGES_DIR}$1/src/index.ts` }],
+  },
   ssr: { resolve: { conditions: CONDITIONS, externalConditions: [SOURCE_CONDITION] } },
 };
 
@@ -22,7 +34,7 @@ const RESOLVE = {
  * @returns The project config to export from `vitest.config.ts`.
  */
 export function createVitestProject(name: string): UserWorkspaceConfig {
-  return defineProject({ ...RESOLVE, test: { name, include: ['src/**/*.test.ts'] } });
+  return defineProject({ ...SOURCE_RESOLVE, test: { name, include: ['src/**/*.test.ts'] } });
 }
 
 /**
@@ -35,7 +47,7 @@ export function createVitestProject(name: string): UserWorkspaceConfig {
  */
 export function createIntegrationProject(name: string, globalSetup: string): UserWorkspaceConfig {
   return defineProject({
-    ...RESOLVE,
+    ...SOURCE_RESOLVE,
     test: {
       name,
       include: ['test/**/*.test.ts'],

@@ -1,7 +1,10 @@
+import { SOURCE_RESOLVE } from '@reef/config/vitest';
 import { defineConfig } from 'vitest/config';
 
 // Integration tests need real services: see each workspace's test/global-setup.ts.
 export default defineConfig({
+  // globalSetup files run under this root config, not their project's, so they need it too.
+  ...SOURCE_RESOLVE,
   test: {
     projects: ['{apps,packages}/*/vitest.integration.config.ts'],
     coverage: {
