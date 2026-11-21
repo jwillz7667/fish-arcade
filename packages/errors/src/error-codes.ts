@@ -5,6 +5,7 @@
 export const ErrorCode = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
   INVALID_AMOUNT: 'INVALID_AMOUNT',
+  INVALID_ADDRESS: 'INVALID_ADDRESS',
   CONFIG_INVALID: 'CONFIG_INVALID',
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
@@ -37,6 +38,7 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 export const DEFAULT_SAFE_MESSAGES: Readonly<Record<ErrorCode, string>> = {
   VALIDATION_FAILED: 'The request is invalid.',
   INVALID_AMOUNT: 'The amount is invalid.',
+  INVALID_ADDRESS: 'The Bitcoin address is not valid for this network.',
   CONFIG_INVALID: 'The service is misconfigured.',
   UNAUTHENTICATED: 'Authentication is required.',
   INVALID_CREDENTIALS: 'The sign-in details are incorrect.',
