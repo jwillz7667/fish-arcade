@@ -50,6 +50,14 @@ describe('seedReferenceData', () => {
     ).toBe(true);
   });
 
+  it('seeds placeholder versions of the three signup documents (spec §5.1)', async () => {
+    await seedReferenceData(prisma, 'development');
+
+    const rows = await prisma.rulesVersion.findMany({ orderBy: { docType: 'asc' } });
+
+    expect(rows.map((row) => row.docType)).toEqual(['official_rules', 'privacy', 'terms']);
+  });
+
   it('seeds one dev super admin, idempotently', async () => {
     await seedReferenceData(prisma, 'development');
     await seedReferenceData(prisma, 'development');
@@ -106,20 +114,6 @@ describe('bootstrapDatabaseRoles', () => {
       { rolname: 'reef_migrator', elevated: false },
       { rolname: 'reef_readonly', elevated: false },
     ]);
-  });
-
-  it('seeds a dev jurisdiction row per state: spec §4.3 states blocked, the rest S, none P', async () => {
-    await seedReferenceData(prisma, 'development');
-
-    const rows = await prisma.jurisdiction.findMany();
-    const modeOf = Object.fromEntries(rows.map((row) => [row.stateCode, row.mode]));
-
-    expect(rows).toHaveLength(US_STATE_CODES.length);
-    expect(SPEC_BLOCKED_STATES.every((state) => modeOf[state] === 'X')).toBe(true);
-    expect(rows.filter((row) => row.mode === 'P')).toEqual([]);
-    expect(
-      rows.every((row) => !row.scRedemptionEnabled && row.legalMemoRef.startsWith('DEV-ONLY')),
-    ).toBe(true);
   });
 
   it('refuses to run in production', async () => {

@@ -18,6 +18,7 @@ import {
 import { isUniqueViolationOn, withTransaction } from '../../db/transaction.js';
 import type { BotVerifier } from '../bot/turnstile-verifier.js';
 import type { Clock } from '../../shared/clock.js';
+import { assertCurrentDocumentsAccepted, recordSignupConsents } from '../../legal/index.js';
 import type { OtpService } from '../otp/otp-service.js';
 import type { NewPasskey } from '../passkeys/passkey-repository.js';
 import type { PasskeyService } from '../passkeys/passkey-service.js';
@@ -172,12 +173,15 @@ export class SignupService {
    * @throws ValidationError when the password is breached.
    * @throws AuthError when the ticket is invalid or the passkey fails verification.
    * @throws ConflictError when the contact was registered concurrently.
+   * @throws ValidationError when `acceptedDocumentIds` are not the legal documents in force.
+   * @throws DependencyUnavailableError when a signup document has no version in force.
    */
   async complete(input: {
     signupTicket: string;
     profile: SignupProfile;
     credential: SignupCredential;
-    ip: string | null;
+    acceptedDocumentIds: readonly string[];
+    ip: string;
     locationRule: JurisdictionRule;
   }): Promise<IssuedTokens> {
     const now = this.deps.clock.now();
@@ -192,6 +196,10 @@ export class SignupService {
       now,
       Math.max(input.locationRule.minAge, homeRule.minAge),
     );
+    await assertCurrentDocumentsAccepted(this.deps.pool, {
+      acceptedIds: input.acceptedDocumentIds,
+      at: now,
+    });
     const ticket = await this.#ticket(input.signupTicket);
     const verified = await this.deps.otp.loadVerified(ticket.challengeId, 'signup');
 
@@ -230,6 +238,12 @@ export class SignupService {
         if (passkey !== undefined) {
           await this.deps.passkeys.savePasskey(client, ticket.userId, passkey, input.ip);
         }
+        await recordSignupConsents(client, {
+          userId: ticket.userId,
+          acceptedIds: input.acceptedDocumentIds,
+          ip: input.ip,
+          at: now,
+        });
         await this.#audit(
           'auth.signup.completed',
           ticket.userId,

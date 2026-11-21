@@ -12,6 +12,14 @@ const TEST_JURISDICTIONS = [
   ['AL', 'P', 21, false, true],
 ] as const;
 
+// Signup documents in force for every test; TEST_DOCUMENT_IDS in test/support/auth-flows.ts
+// lists the same IDs.
+const TEST_DOCUMENTS = [
+  ['00000000-0000-4000-8000-000000000001', 'terms'],
+  ['00000000-0000-4000-8000-000000000002', 'official_rules'],
+  ['00000000-0000-4000-8000-000000000003', 'privacy'],
+] as const;
+
 async function seedJurisdictions(adminUrl: string): Promise<void> {
   const client = new pg.Client({ connectionString: adminUrl });
   await client.connect();
@@ -22,6 +30,13 @@ async function seedJurisdictions(adminUrl: string): Promise<void> {
            sc_redemption_enabled, fish_games_enabled, legal_memo_ref)
          VALUES ($1, '2026-01-01T00:00:00Z', $2::"JurisdictionMode", $3, $4, $5, 'TEST')`,
         [state, mode, minAge, isRedemptionEnabled, isFishEnabled],
+      );
+    }
+    for (const [id, docType] of TEST_DOCUMENTS) {
+      await client.query(
+        `INSERT INTO rules_versions (id, doc_type, version, url, effective_at)
+         VALUES ($1, $2, 'test-1', 'https://reef.test/legal', '2026-01-01T00:00:00Z')`,
+        [id, docType],
       );
     }
   } finally {

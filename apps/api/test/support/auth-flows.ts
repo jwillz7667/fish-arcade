@@ -68,9 +68,25 @@ export async function geoHeader(
   return { 'x-geo-token': body.geoToken };
 }
 
+/** The signup documents seeded by the global setup. */
+export const TEST_DOCUMENT_IDS = [
+  '00000000-0000-4000-8000-000000000001',
+  '00000000-0000-4000-8000-000000000002',
+  '00000000-0000-4000-8000-000000000003',
+] as const;
+
+function withAcceptedDocuments(url: string, body: unknown): unknown {
+  const isComplete = url.endsWith('/signup/complete');
+  if (!isComplete || typeof body !== 'object' || body === null || 'acceptedDocumentIds' in body) {
+    return body;
+  }
+  return { ...body, acceptedDocumentIds: TEST_DOCUMENT_IDS };
+}
+
 /**
  * POST to a location-gated signup route: pins one client IP, runs a signup geo check from it,
  * and sends the token with the request.
+ * Signup completion accepts the seeded legal documents unless the body says otherwise.
  */
 export async function signupPost(
   t: TestApp,
@@ -83,7 +99,10 @@ export async function signupPost(
     ip,
     ...(options.place === undefined ? {} : { place: options.place }),
   });
-  return post(t, url, body, { ip, headers: { ...geo, ...options.headers } });
+  return post(t, url, withAcceptedDocuments(url, body), {
+    ip,
+    headers: { ...geo, ...options.headers },
+  });
 }
 
 /** Native-app header: tokens in the body. */

@@ -36,6 +36,8 @@ export const signupPasskeyOptionsBody = z.object({
 export const signupCompleteBody = z.object({
   signupTicket: opaqueToken,
   profile: signupProfileSchema,
+  // Spec §5.1: the IDs from GET /legal/current that the player saw and accepted.
+  acceptedDocumentIds: z.array(z.uuid()).min(1).max(10),
   credential: z.discriminatedUnion('type', [
     z.object({ type: z.literal('password'), password: newPasswordSchema }),
     z.object({ type: z.literal('passkey'), response: registrationResponseSchema }),
