@@ -1,6 +1,6 @@
 # @reef/workers
 
-Background processes: the BTC/USD price oracle now, and later payment and KYC webhooks, payouts, ledger checkpoints, jackpot settlement, screening, email/SMS, and reports.
+Background processes: the BTC/USD price oracle and the OFAC import now, and later payment and KYC webhooks, payouts, ledger checkpoints, jackpot settlement, screening, email/SMS, and reports.
 
 |          |                                              |
 | -------- | -------------------------------------------- |
@@ -24,6 +24,16 @@ Every `PRICE_POLL_INTERVAL_MS` (15 seconds by default) the oracle:
 | `PRICE_POLL_INTERVAL_MS`    | `15000`                    | 5,000 to 60,000                                                                  |
 
 Exchange prices are parsed from their decimal strings straight into integer cents per BTC (`parseCentsPerBtc`). Digits past the cent are dropped.
+
+## OFAC import (`src/ofac`, Step 12, ADR 0007)
+
+Every `OFAC_IMPORT_INTERVAL_HOURS` (24 by default) the job downloads OFAC's `SDN.XML` from `OFAC_SDN_URL`, extracts the Bitcoin addresses, and imports them as a new version when the file changed. An unchanged file only confirms the version in force. A failed run logs `metric: "ofac_import.failed"` at error level and keeps the current list; three days without a confirmed list make screening fail closed.
+
+The importer refuses an empty list, a list that lost over half its addresses, and an older publication than the one in force. When OFAC really did delist that many, confirm it on OFAC's recent actions page and run:
+
+```
+pnpm --filter @reef/workers ofac:import -- --accept-shrink
+```
 
 ## Run
 

@@ -1,0 +1,86 @@
+<?xml version="1.0" standalone="yes"?>
+<sdnList xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/XML">
+  <publshInformation>
+    <Publish_Date>11/20/2026</Publish_Date>
+    <Record_Count>3</Record_Count>
+  </publshInformation>
+  <!-- Shapes follow the real SDN.XML. Names are invented; the addresses are real SDN entries. -->
+  <sdnEntry>
+    <uid>900001</uid>
+    <lastName>EXAMPLE DARK MARKET LTD</lastName>
+    <sdnType>Entity</sdnType>
+    <programList>
+      <program>CYBER2</program>
+    </programList>
+    <idList>
+      <id>
+        <uid>900101</uid>
+        <idType>Registration Number</idType>
+        <idNumber>1027700132195</idNumber>
+        <idCountry>Russia</idCountry>
+      </id>
+      <id>
+        <uid>900102</uid>
+        <idType>Digital Currency Address - XBT</idType>
+        <idNumber>12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h</idNumber>
+      </id>
+      <id>
+        <uid>900103</uid>
+        <idType>Digital Currency Address - ETH</idType>
+        <idNumber>0x7F367cC41522cE07553e823bf3be79A889DEbe1B</idNumber>
+      </id>
+      <id>
+        <uid>900104</uid>
+        <idType>Digital Currency Address - XBT</idType>
+        <idNumber>bc1qv7k70u2zynvem59u88ctdlaw7hc735d8xep9rq</idNumber>
+      </id>
+    </idList>
+  </sdnEntry>
+  <sdnEntry>
+    <uid>900002</uid>
+    <lastName>EXAMPLE MIXER SERVICES</lastName>
+    <sdnType>Entity</sdnType>
+    <programList>
+      <program>CYBER2</program>
+    </programList>
+    <idList>
+      <id>
+        <uid>900201</uid>
+        <idType>Digital Currency Address - XBT</idType>
+        <idNumber>12QtD5BFwRsdNsAZY76UVE1xyCGNTojH9h</idNumber>
+      </id>
+      <id>
+        <uid>900202</uid>
+        <idType>Digital Currency Address - XBT</idType>
+        <idNumber>BC1QW4CXPE6SXA5DG6SDWXJPH959CW6YZTRZL4R54S</idNumber>
+      </id>
+      <id>
+        <uid>900203</uid>
+        <idType>Digital Currency Address - XBT</idType>
+        <idNumber>
+          1Kuf2Rd8mDyAViwBozGTNYnvWL8uYFrkVo
+        </idNumber>
+      </id>
+    </idList>
+  </sdnEntry>
+  <sdnEntry>
+    <uid>900003</uid>
+    <lastName>EXAMPLE TRADING FZE</lastName>
+    <sdnType>Entity</sdnType>
+    <programList>
+      <program>DPRK3</program>
+    </programList>
+    <idList>
+      <id>
+        <uid>900301</uid>
+        <idType>Digital Currency Address - XBT</idType>
+        <idNumber>TUCsTq7TofTCJRRoHk6RvhMoS2mJLm5Yzq</idNumber>
+      </id>
+      <id>
+        <uid>900302</uid>
+        <idType>Digital Currency Address - TRX</idType>
+        <idNumber>TUCsTq7TofTCJRRoHk6RvhMoS2mJLm5Yzq</idNumber>
+      </id>
+    </idList>
+  </sdnEntry>
+</sdnList>

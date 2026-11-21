@@ -14,7 +14,10 @@ import {
 import { ADMIN_CONTROLLERS, createAdminProviders } from '../admin/index.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { LegalController } from '../legal/index.js';
+import type { ChainRiskProvider } from '@reef/screening';
+
 import {
+  AccountFreezer,
   COMPLIANCE_CONTROLLERS,
   createComplianceServices,
   type GeoProvider,
@@ -41,6 +44,8 @@ export interface AppDependencies {
   readonly geoProvider: GeoProvider;
   /** Identity verification vendor. */
   readonly kycProvider: KycProvider;
+  /** Chain analytics vendor for sanctions and risk screening. */
+  readonly chainRiskProvider: ChainRiskProvider;
   /** fetch for the admin OIDC client; tests point it at a fake IdP. */
   readonly oidcFetch?: typeof fetch;
   /** Extra controllers, for feature modules added in later steps and for tests. */
@@ -61,6 +66,14 @@ export class AppModule {
       audit,
       clock: deps.auth.clock,
       hmacKey: deps.auth.keys.hmacKey,
+      blindIndexer: deps.auth.encryption.blindIndexer,
+    });
+    const auth = createAuthProviders({ ...deps, audit, jurisdictions: compliance.jurisdictions });
+    const freezer = new AccountFreezer({
+      pool: deps.pool,
+      audit,
+      revokeAllSessions: (input) => auth.sessions.revokeAll(input),
+      logger: deps.logger,
     });
     return {
       module: AppModule,
@@ -88,7 +101,8 @@ export class AppModule {
           hmacKey: deps.auth.keys.hmacKey,
           encryption: deps.auth.encryption,
         }),
-        ...createAuthProviders({ ...deps, audit, jurisdictions: compliance.jurisdictions }),
+        ...auth.providers,
+        { provide: AccountFreezer, useValue: freezer },
         // Guards run in this order: authenticate first, so per-principal limits see the user.
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_GUARD, useClass: RateLimitGuard },

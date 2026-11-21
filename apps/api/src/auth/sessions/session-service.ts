@@ -68,7 +68,8 @@ export class SessionService {
    *
    * @param input The user, the methods used (RFC 8176 `amr`), and the client IP.
    * @returns Fresh tokens.
-   * @throws AuthError INVALID_CREDENTIALS when the account is closed. Every login method
+   * @throws AuthError INVALID_CREDENTIALS when the account is closed, suspended, or frozen.
+   *   Every login method
    *   (password, passkey, MFA completion, signup) starts its session here, so none can bypass it.
    */
   async start(input: {
@@ -152,15 +153,15 @@ export class SessionService {
         });
         return { kind: 'revoked', sessionId: record.sessionId, reason: 'Refresh token reused' };
       }
-      if (record.isAccountClosed) {
+      if (record.isAccountBlocked) {
         await this.#revokeInTransaction(client, {
           sessionId: record.sessionId,
           userId: record.userId,
-          reason: 'account_closed',
+          reason: 'account_blocked',
           ip: request.ip,
           at: now,
         });
-        return { kind: 'revoked', sessionId: record.sessionId, reason: 'Account closed' };
+        return { kind: 'revoked', sessionId: record.sessionId, reason: 'Account blocked' };
       }
       if (record.expiresAt <= now || record.sessionExpiresAt <= now) {
         throw new AuthError({ message: 'Refresh token expired' });
@@ -282,6 +283,39 @@ export class SessionService {
       return ids;
     });
     await this.#cacheRevocations(revoked);
+  }
+
+  /**
+   * Revokes every session of a user, such as when Compliance freezes the account, and cuts off
+   * access tokens already issued.
+   *
+   * @param input User and reason.
+   * @returns How many sessions were still active.
+   * @throws Error when Postgres or Redis fails. The account's status already refuses refreshes,
+   *   so a failure here leaves access tokens alive only until they expire.
+   */
+  async revokeAll(input: { userId: string; reason: string }): Promise<number> {
+    const at = this.deps.clock.now();
+    const revoked = await withTransaction(this.deps.pool, async (client) => {
+      const ids = await sessionRepository.revokeUserSessions(client, { ...input, at });
+      if (ids.length > 0) {
+        await this.deps.audit.record(
+          {
+            actorType: 'system',
+            actorId: null,
+            action: 'auth.session.revoked_all',
+            targetType: 'user',
+            targetId: input.userId,
+            details: { reason: input.reason, count: ids.length },
+            ip: null,
+          },
+          client,
+        );
+      }
+      return ids;
+    });
+    await this.#cacheRevocations(revoked);
+    return revoked.length;
   }
 
   /**

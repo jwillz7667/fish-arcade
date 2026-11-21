@@ -302,6 +302,9 @@ model ProcessedWebhook {
 
 enum AccountHoldKind {
   redemption
+  // Playbook Step 12: a sanctioned or severe-risk chain screening. The account is suspended
+  // too; releasing the last freeze hold reactivates it.
+  freeze
 }
 
 // Blocks on what an account may do, such as redemption after a sanctions or PEP hit. A hold is
@@ -1281,10 +1284,28 @@ model ChainScreening {
   @@map("chain_screenings")
 }
 
+// One row per distinct OFAC SDN publication imported (playbook Step 12). The newest import is
+// the list in force; checked_at moves forward each time the daily job finds it unchanged.
+model OfacImport {
+  listVersion  String   @id @map("list_version")
+  publishDate  DateTime @map("publish_date") @db.Date
+  sha256       String   @unique @db.Char(64)
+  addressCount Int      @map("address_count")
+  importedAt   DateTime @default(now()) @map("imported_at") @db.Timestamptz(3)
+  checkedAt    DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+
+  addresses OfacAddress[]
+
+  @@index([importedAt])
+  @@map("ofac_imports")
+}
+
 model OfacAddress {
   address     String
   listVersion String   @map("list_version")
   addedAt     DateTime @default(now()) @map("added_at") @db.Timestamptz(3)
+
+  import OfacImport @relation(fields: [listVersion], references: [listVersion], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([address, listVersion])
   @@index([address])

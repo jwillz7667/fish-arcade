@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "NODE_OPTIONS=--max-old-space-size=6144 eslint . --max-warnings 0",
     "typecheck": "tsc -p tsconfig.json && turbo run typecheck",
     "test": "vitest run --coverage",
     "format": "prettier --write .",

@@ -1,4 +1,10 @@
 {
   "extends": "@reef/config/tsconfig/node.json",
-  "include": ["src/**/*", "test/**/*", "vitest.config.ts", "vitest.integration.config.ts"]
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "scripts/**/*",
+    "vitest.config.ts",
+    "vitest.integration.config.ts"
+  ]
 }

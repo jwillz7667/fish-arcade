@@ -1,3 +1,4 @@
+export { createChainRiskProvider } from '@reef/screening';
 export {
   COMPLIANCE_CONTROLLERS,
   createComplianceServices,
@@ -5,6 +6,13 @@ export {
   createKycProvider,
   type ComplianceServices,
 } from './compliance-providers.js';
+export {
+  AccountFreezer,
+  type AccountFreezerDeps,
+  type FreezeRequest,
+  type FreezeResult,
+  type RevokeAllSessions,
+} from './holds/account-freezer.js';
 export { DevStubGeoProvider } from './geo/dev-stub-provider.js';
 export { DevStubKycProvider, type ScriptedKycOutcome } from './kyc/dev-stub-kyc-provider.js';
 export { RequireKyc, RequireRedemptionEligibility } from './kyc/kyc.guard.js';

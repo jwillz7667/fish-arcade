@@ -1,5 +1,14 @@
 import type { Queryable } from '../../audit/audit-writer.js';
 
+/** Account statuses that cannot hold a session. */
+const BLOCKED_STATUSES: ReadonlySet<string> = new Set(['closed', 'suspended']);
+
+// Served by the account_holds (user_id, kind) index. Expects the users row aliased as `u`.
+const IS_FROZEN_SQL = `EXISTS (
+  SELECT 1 FROM account_holds h
+   WHERE h.user_id = u.id AND h.kind = 'freeze' AND h.released_at IS NULL
+)`;
+
 /** A refresh token joined with its session, as locked during rotation. */
 export interface RefreshTokenRecord {
   readonly tokenId: string;
@@ -12,7 +21,8 @@ export interface RefreshTokenRecord {
   readonly sessionExpiresAt: Date;
   readonly sessionRevokedAt: Date | null;
   /** True when the account has been closed since the session started. */
-  readonly isAccountClosed: boolean;
+  /** Closed, suspended, or under a compliance freeze: the session must end. */
+  readonly isAccountBlocked: boolean;
 }
 
 interface RefreshRow {
@@ -26,6 +36,7 @@ interface RefreshRow {
   session_expires_at: Date;
   session_revoked_at: Date | null;
   user_status: string;
+  is_frozen: boolean;
 }
 
 /** SQL for `auth_sessions` and `refresh_tokens`. Every query is parameterized. */
@@ -66,14 +77,16 @@ export const sessionRepository = {
    *
    * @param client Transaction client.
    * @param userId Account.
-   * @returns True when the account exists and is not closed.
+   * @returns True when the account exists, is neither closed nor suspended, and has no active
+   *   compliance freeze (playbook Step 12).
    */
   async isAccountOpen(client: Queryable, userId: string): Promise<boolean> {
-    const { rows } = await client.query<{ status: string }>(
-      'SELECT status FROM users WHERE id = $1 FOR SHARE',
+    const { rows } = await client.query<{ status: string; is_frozen: boolean }>(
+      `SELECT status, ${IS_FROZEN_SQL} AS is_frozen FROM users u WHERE u.id = $1 FOR SHARE`,
       [userId],
     );
-    return rows[0] !== undefined && rows[0].status !== 'closed';
+    const [row] = rows;
+    return row !== undefined && !BLOCKED_STATUSES.has(row.status) && !row.is_frozen;
   },
 
   /**
@@ -87,7 +100,7 @@ export const sessionRepository = {
     const { rows } = await client.query<RefreshRow>(
       `SELECT rt.id AS token_id, rt.session_id, s.user_id, s.auth_time, s.amr, rt.used_at,
               rt.expires_at, s.expires_at AS session_expires_at, s.revoked_at AS session_revoked_at,
-              u.status AS user_status
+              u.status AS user_status, ${IS_FROZEN_SQL} AS is_frozen
          FROM refresh_tokens rt
          JOIN auth_sessions s ON s.id = rt.session_id
          JOIN users u ON u.id = s.user_id
@@ -107,7 +120,7 @@ export const sessionRepository = {
       expiresAt: row.expires_at,
       sessionExpiresAt: row.session_expires_at,
       sessionRevokedAt: row.session_revoked_at,
-      isAccountClosed: row.user_status === 'closed',
+      isAccountBlocked: BLOCKED_STATUSES.has(row.user_status) || row.is_frozen,
     };
   },
 

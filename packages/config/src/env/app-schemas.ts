@@ -11,6 +11,11 @@ import { AUTH_DEV_ONLY_RULES, AUTH_SHAPE } from './auth-schema.js';
 import { BITCOIN_DEV_ONLY_RULES, BITCOIN_SHAPE } from './bitcoin-schema.js';
 import { PRICE_DEV_ONLY_RULES, PRICE_SHAPE } from './price-schema.js';
 import {
+  OFAC_IMPORT_SHAPE,
+  SCREENING_DEV_ONLY_RULES,
+  SCREENING_SHAPE,
+} from './screening-schema.js';
+import {
   GEO_DEV_ONLY_RULES,
   GEO_SHAPE,
   KYC_DEV_ONLY_RULES,
@@ -66,6 +71,7 @@ export const apiEnvSchema = defineEnvSchema(
     ...KYC_SHAPE,
     ...ADMIN_SHAPE,
     ...BITCOIN_SHAPE,
+    ...SCREENING_SHAPE,
   },
   {
     ...TLS_RULES,
@@ -75,6 +81,7 @@ export const apiEnvSchema = defineEnvSchema(
     ...KYC_DEV_ONLY_RULES,
     ...ADMIN_DEV_ONLY_RULES,
     ...BITCOIN_DEV_ONLY_RULES,
+    ...SCREENING_DEV_ONLY_RULES,
     TRUST_PROXY_HOPS: (value: unknown) => value === undefined,
     // Plain-http origins are for local development only.
     CORS_ORIGINS: (value: unknown) =>
@@ -93,8 +100,16 @@ export const workersEnvSchema = defineEnvSchema(
     ...FIELD_ENCRYPTION_SHAPE,
     ...BITCOIN_SHAPE,
     ...PRICE_SHAPE,
+    ...SCREENING_SHAPE,
+    ...OFAC_IMPORT_SHAPE,
   },
-  { ...TLS_RULES, ...FIELD_ENCRYPTION_RULES, ...BITCOIN_DEV_ONLY_RULES, ...PRICE_DEV_ONLY_RULES },
+  {
+    ...TLS_RULES,
+    ...FIELD_ENCRYPTION_RULES,
+    ...BITCOIN_DEV_ONLY_RULES,
+    ...PRICE_DEV_ONLY_RULES,
+    ...SCREENING_DEV_ONLY_RULES,
+  },
 );
 
 /** Parsed env for `apps/workers`. */

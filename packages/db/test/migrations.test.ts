@@ -22,6 +22,7 @@ describe('migrations on an empty database', () => {
       ['kyc_sanctions_clearance', true],
       ['ledger_hardening', true],
       ['price_snapshot_per_minute', true],
+      ['chain_screening', true],
     ]);
   });
 
@@ -82,6 +83,7 @@ describe('migrations on an empty database', () => {
         'price_snapshots',
         'chain_screenings',
         'ofac_addresses',
+        'ofac_imports',
         'treasury_events',
         'system_flags',
         'otp_challenges',

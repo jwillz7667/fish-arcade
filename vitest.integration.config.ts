@@ -23,8 +23,11 @@ export default defineConfig({
         '**/testing/**',
         '**/apps/api/src/main.ts',
         '**/apps/workers/src/main.ts',
-        // Exchange adapters call the internet; unit tests cover them with a fake transport.
+        // Exchange adapters and the OFAC download call the internet, and the OFAC schedule only
+        // sequences them; unit tests cover these with a fake transport.
         '**/apps/workers/src/price-oracle/exchange-sources.ts',
+        '**/apps/workers/src/ofac/sdn-download.ts',
+        '**/apps/workers/src/ofac/ofac-import-job.ts',
         // Third-party adapters and key loading: integration swaps in test doubles and test
         // keys, and the unit tests cover these files instead.
         '**/apps/api/src/auth/auth-dependencies.ts',
