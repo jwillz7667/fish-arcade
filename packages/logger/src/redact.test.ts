@@ -43,6 +43,8 @@ const VARIANT_KEYS = [
   'seedPhrase',
   'DATABASE_URL',
   'REDIS_URL',
+  'DATABASE_ADMIN_URL',
+  'MIGRATION_DATABASE_URL',
 ];
 
 describe('isSensitiveKey', () => {
