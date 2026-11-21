@@ -25,6 +25,16 @@ export class RequestContext {
   }
 
   /**
+   * Makes `scope` current for the rest of the current async execution and everything it
+   * starts. For frameworks that expose request hooks rather than a wrapping callback.
+   *
+   * @param scope Scope to enter.
+   */
+  enter(scope: RequestScope): void {
+    this.#storage.enterWith(scope);
+  }
+
+  /**
    * @returns The current request ID, or undefined outside a request scope.
    */
   getRequestId(): string | undefined {

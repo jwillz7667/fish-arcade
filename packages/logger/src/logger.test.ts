@@ -42,6 +42,22 @@ describe('createLogger', () => {
     expect(lines.map((line) => line['requestId'])).toEqual(['req-1', undefined]);
   });
 
+  it('adds the request ID after enter() for the rest of the async execution', async () => {
+    const { lines, context, logger } = setup();
+
+    await new Promise<void>((resolve) => {
+      setImmediate(() => {
+        context.enter({ requestId: 'req-2' });
+        void Promise.resolve().then(() => {
+          logger.info('later');
+          resolve();
+        });
+      });
+    });
+
+    expect(lines[0]?.['requestId']).toBe('req-2');
+  });
+
   it('redacts sensitive fields in log payloads', () => {
     const { lines, logger } = setup();
 
