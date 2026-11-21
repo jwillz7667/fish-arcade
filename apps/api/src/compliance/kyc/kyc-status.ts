@@ -7,9 +7,9 @@ export type KycStatus = 'pending' | 'passed' | 'failed' | 'review' | 'sanctions_
 /**
  * Allowed status changes. `passed → sanctions_hit` covers ongoing list screening (spec §15:
  * sanctions and PEP at KYC and on list updates). `failed` and `sanctions_hit` are final here.
- * The player starts a new check after `failed`. Clearing a false-positive `sanctions_hit` is a
- * Compliance decision that has no workflow yet: releasing the redemption hold alone does not
- * restore eligibility.
+ * The player starts a new check after `failed`. A false-positive `sanctions_hit` is cleared by
+ * the four-eyes `kyc.clear_sanctions_hit` approval, which keeps this status as the vendor's
+ * verdict and records the clearance beside it.
  */
 function allowedFrom(status: KycStatus): readonly KycStatus[] {
   switch (status) {

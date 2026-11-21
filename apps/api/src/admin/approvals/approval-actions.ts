@@ -56,7 +56,48 @@ export const releaseAccountHold: ApprovalAction<z.infer<typeof releaseHoldPayloa
   },
 };
 
+const clearSanctionsPayload = z.object({
+  kycCheckId: z.uuid(),
+  reason: z.string().trim().min(10).max(500),
+});
+
+/**
+ * Clears a false-positive sanctions hit (spec §15) and releases the redemption holds it placed,
+ * in one transaction. One Compliance officer requests; a different one approves. The check
+ * keeps its `sanctions_hit` status as the vendor's verdict. Identity verification still needs a
+ * passed check, so a player whose only check flipped to a hit verifies again.
+ */
+export const clearSanctionsHit: ApprovalAction<z.infer<typeof clearSanctionsPayload>> = {
+  name: 'kyc.clear_sanctions_hit',
+  requestPermission: 'aml.write',
+  approvePermission: 'aml.write',
+  payloadSchema: clearSanctionsPayload,
+  target: (payload) => ({ type: 'kyc_check', id: payload.kycCheckId }),
+  execute: async (payload, { client, approverId }) => {
+    const { rows } = await client.query<{ user_id: string }>(
+      `UPDATE kyc_checks
+          SET sanctions_cleared_at = now(), sanctions_cleared_by = $2, updated_at = now()
+        WHERE id = $1 AND status = 'sanctions_hit' AND sanctions_cleared_at IS NULL
+        RETURNING user_id`,
+      [payload.kycCheckId, approverId],
+    );
+    const userId = rows[0]?.user_id;
+    if (userId === undefined) {
+      throw new ConflictError({ message: 'No uncleared sanctions hit with that ID' });
+    }
+    const released = await client.query(
+      `UPDATE account_holds SET released_at = now(), released_by = $2
+        WHERE source_type = 'kyc_check' AND source_id = $1 AND released_at IS NULL`,
+      [payload.kycCheckId, approverId],
+    );
+    return { userId, releasedHolds: String(released.rowCount ?? 0) };
+  },
+};
+
 /** Every action the approvals service accepts. Later steps register theirs here. */
 export const APPROVAL_ACTIONS: ReadonlyMap<string, ApprovalAction<unknown>> = new Map(
-  [releaseAccountHold].map((action) => [action.name, action as ApprovalAction<unknown>]),
+  [releaseAccountHold, clearSanctionsHit].map((action) => [
+    action.name,
+    action as ApprovalAction<unknown>,
+  ]),
 );

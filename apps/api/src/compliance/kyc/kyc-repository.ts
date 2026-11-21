@@ -58,8 +58,9 @@ export const kycRepository = {
   },
 
   /**
-   * Whether the user has a passed check at one of `levels` and no sanctions hit on any check.
-   * Served by the (user_id, created_at) index.
+   * Whether the user has a passed check at one of `levels` and no uncleared sanctions hit on
+   * any check. A cleared hit lifts the sanctions block only; identity still needs a passed
+   * check. Served by the (user_id, created_at) index.
    */
   async isVerified(
     client: Queryable,
@@ -68,7 +69,8 @@ export const kycRepository = {
   ): Promise<boolean> {
     const { rows } = await client.query<{ is_verified: boolean }>(
       `SELECT bool_or(status = 'passed' AND level = ANY($2::"KycLevel"[]))
-              AND NOT bool_or(status = 'sanctions_hit') AS is_verified
+              AND NOT bool_or(status = 'sanctions_hit' AND sanctions_cleared_at IS NULL)
+              AS is_verified
          FROM kyc_checks WHERE user_id = $1`,
       [userId, levels],
     );

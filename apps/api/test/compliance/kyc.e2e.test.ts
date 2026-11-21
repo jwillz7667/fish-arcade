@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { signWebhook } from '../../src/compliance/kyc/webhook-signature.js';
 import type { ErrorBody } from '../../src/http/error-response.js';
 import { buildTestApp, type TestApp } from '../http/test-app.js';
+import { adminCall, adminSignIn, createAdmin } from '../support/admin-flows.js';
 import { post, signUp, type InjectResponse, type MobileSession } from '../support/auth-flows.js';
 
 const SECRET = 'test-kyc-webhook-secret-0123456789abcdef';
@@ -295,5 +296,81 @@ describe('KYC status transitions', () => {
     const again = await deliver(await t.kyc.script(vendorRef, 'passed'));
 
     expect(again.json()).toEqual({ status: 'unchanged' });
+  });
+});
+
+describe('clearing a false-positive sanctions hit (four-eyes)', () => {
+  async function sanctionedPlayer(): Promise<{ session: MobileSession; checkId: string }> {
+    const session = await signUp(t);
+    const hit = await startKyc(session, 'light');
+    await deliver(await t.kyc.script(hit.vendorRef, 'sanctions_hit'));
+    const full = await startKyc(session, 'full');
+    await deliver(await t.kyc.script(full.vendorRef, 'passed'));
+    return { session, checkId: hit.checkId };
+  }
+
+  async function requestClearance(checkId: string) {
+    const [requester, approver] = [
+      await adminSignIn(t, await createAdmin(db, ['compliance_officer'])),
+      await adminSignIn(t, await createAdmin(db, ['compliance_officer'])),
+    ];
+    const requested = await adminCall(t, requester, 'POST', '/v1/admin/approvals', {
+      action: 'kyc.clear_sanctions_hit',
+      payload: { kycCheckId: checkId, reason: 'Name match only; DOB and address differ' },
+    });
+    return { requester, approver, approvalId: requested.json<{ id: string }>().id };
+  }
+
+  it('restores eligibility once a second Compliance officer approves, and releases the hold', async () => {
+    const { session, checkId } = await sanctionedPlayer();
+    const before = await gated(session, 'redemption');
+    const { approver, approvalId } = await requestClearance(checkId);
+
+    const approved = await adminCall(
+      t,
+      approver,
+      'POST',
+      `/v1/admin/approvals/${approvalId}/approve`,
+    );
+
+    expect(errorCode(before)).toBe('REDEMPTION_SUSPENDED');
+    expect(approved.json()).toMatchObject({ status: 'executed' });
+    expect((await gated(session, 'redemption')).statusCode).toBe(201);
+    const { rows } = await db.query<{ status: string; sanctions_cleared_by: string }>(
+      'SELECT status, sanctions_cleared_by FROM kyc_checks WHERE id = $1',
+      [checkId],
+    );
+    expect(rows[0]).toEqual({ status: 'sanctions_hit', sanctions_cleared_by: approver.adminId });
+  });
+
+  it('keeps the player blocked until it is approved', async () => {
+    const { session, checkId } = await sanctionedPlayer();
+    const { requester, approvalId } = await requestClearance(checkId);
+
+    const selfApproved = await adminCall(
+      t,
+      requester,
+      'POST',
+      `/v1/admin/approvals/${approvalId}/approve`,
+    );
+
+    expect(selfApproved.statusCode).toBe(403);
+    expect(errorCode(await gated(session, 'redemption'))).toBe('REDEMPTION_SUSPENDED');
+  });
+
+  it('refuses to clear a check that is not a sanctions hit', async () => {
+    const session = await signUp(t);
+    const { checkId, vendorRef } = await startKyc(session, 'light');
+    await deliver(await t.kyc.script(vendorRef, 'passed'));
+    const { approver, approvalId } = await requestClearance(checkId);
+
+    const approved = await adminCall(
+      t,
+      approver,
+      'POST',
+      `/v1/admin/approvals/${approvalId}/approve`,
+    );
+
+    expect(approved.statusCode).toBe(409);
   });
 });
