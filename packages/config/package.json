@@ -4,25 +4,36 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": {
+      "@reef/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./eslint": "./src/eslint.js",
+    "./vitest": "./src/vitest.ts",
     "./tsconfig/*": "./tsconfig/*"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@eslint/js": "10.0.1",
-    "eslint-plugin-security": "4.2.1",
-    "typescript-eslint": "8.72.1"
+    "@reef/errors": "workspace:*",
+    "zod": "4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint-plugin-security": "4.2.1",
+    "typescript-eslint": "8.72.1",
     "@types/node": "22.20.5",
     "eslint": "10.14.0",
     "typescript": "6.0.3",
     "vitest": "5.1.0"
   },
-  "peerDependencies": {
-    "eslint": "10.14.0",
-    "typescript": "6.0.3"
-  }
+  "files": [
+    "dist",
+    "src/eslint.js",
+    "src/vitest.ts",
+    "tsconfig"
+  ]
 }
