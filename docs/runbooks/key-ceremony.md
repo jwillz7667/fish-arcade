@@ -14,6 +14,22 @@ The procedure people follow to create the production 2-of-3 multisig that receiv
 | Coordinator operator | 1     | Runs the wallet coordinator, such as Sparrow, on an offline machine. May be one of the keyholders |
 | Witness              | 1     | Not a keyholder. Reads each check aloud and signs the ceremony log                                |
 
+## Reef's layout: one keyholder
+
+Reef's founder holds all three keys (ADR 0005). The roles above still apply, with the founder as every keyholder and as the coordinator operator. The witness should be someone who is not a keyholder, such as the company's attorney. The witness never sees a seed.
+
+| Key | Device                | Device lives in | Metal backup lives in                        |
+| --- | --------------------- | --------------- | -------------------------------------------- |
+| 1   | Coldcard Q            | Home safe       | Bank safe deposit box                        |
+| 2   | Trezor Safe 5         | Home safe       | Second bank's box, or the attorney's vault   |
+| 3   | Blockstream Jade Plus | Relative's safe | Same bag as device 3, sealed, tamper-evident |
+
+- A printed copy of the wallet descriptor goes with every backup. Two seeds cannot rebuild the wallet without the third xpub.
+- No place holds two seeds, so no single place can spend. Losing any one place loses nothing.
+- Devices 1 and 2 at home sign refills and weekly sweeps. Set a Coldcard trick PIN, and never discuss where the keys are.
+- Leave a sealed continuity letter with the attorney: the places and this runbook, never seed words.
+- This replaces the "different location from the other keyholders'" rule in ceremony step 9.
+
 ## Before the day
 
 1. **Buy the devices.** Buy three hardware wallets from at least two vendors, directly from each manufacturer. Never buy from a marketplace or reseller. The vendors must support BIP 48 multisig and showing an address on screen. Write down each device's serial number and the condition of its tamper seal on arrival.
