@@ -1,0 +1,9 @@
+{
+  "name": "@reef/fish-table-1",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@reef/config": "workspace:*"
+  }
+}

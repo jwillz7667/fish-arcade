@@ -11,19 +11,19 @@ Reef is a fish arcade gaming platform: multiplayer fish shooting tables, slots, 
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `pnpm i` | Install (always with the committed lockfile) |
-| `pnpm dev` | Start all apps against local Docker services |
-| `pnpm lint` | ESLint, zero warnings allowed |
-| `pnpm typecheck` | `tsc --noEmit` across the workspace |
-| `pnpm test` | Vitest, all packages |
-| `pnpm build` | Production build of every app |
-| `pnpm db:migrate` | Apply Prisma and raw SQL migrations |
-| `pnpm services:up` | Postgres, Redis, Mailpit, MinIO via Docker |
-| `pnpm btc:up` | Regtest bitcoind, NBXplorer, BTCPay Server |
-| `pnpm btc:mine <n>` | Mine n regtest blocks |
-| `pnpm sim` | Run the math simulator |
+| Command             | What it does                                 |
+| ------------------- | -------------------------------------------- |
+| `pnpm i`            | Install (always with the committed lockfile) |
+| `pnpm dev`          | Start all apps against local Docker services |
+| `pnpm lint`         | ESLint, zero warnings allowed                |
+| `pnpm typecheck`    | `tsc --noEmit` across the workspace          |
+| `pnpm test`         | Vitest, all packages                         |
+| `pnpm build`        | Production build of every app                |
+| `pnpm db:migrate`   | Apply Prisma and raw SQL migrations          |
+| `pnpm services:up`  | Postgres, Redis, Mailpit, MinIO via Docker   |
+| `pnpm btc:up`       | Regtest bitcoind, NBXplorer, BTCPay Server   |
+| `pnpm btc:mine <n>` | Mine n regtest blocks                        |
+| `pnpm sim`          | Run the math simulator                       |
 
 Every task ends with `pnpm lint && pnpm typecheck && pnpm test` passing.
 
