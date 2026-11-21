@@ -15,6 +15,7 @@ describe('migrations on an empty database', () => {
       ['init', true],
       ['ledger_invariants', true],
       ['role_grants', true],
+      ['player_auth', true],
     ]);
   });
 
@@ -77,9 +78,38 @@ describe('migrations on an empty database', () => {
         'ofac_addresses',
         'treasury_events',
         'system_flags',
+        'otp_challenges',
+        'auth_sessions',
+        'refresh_tokens',
+        'user_mfa',
+        'recovery_codes',
+        'passkeys',
       ].sort(),
     );
   });
+
+  it.each([
+    'otp_challenges',
+    'auth_sessions',
+    'refresh_tokens',
+    'user_mfa',
+    'recovery_codes',
+    'passkeys',
+  ])(
+    'grants reef_app read and write on the auth table %s through default privileges',
+    async (table) => {
+      const privileges = await withClient('reef_app', async (client) => {
+        const { rows } = await client.query<{ privilege: string }>(
+          `SELECT privilege_type AS privilege FROM information_schema.role_table_grants
+            WHERE grantee = 'reef_app' AND table_name = $1`,
+          [table],
+        );
+        return rows.map((row) => row.privilege).sort();
+      });
+
+      expect(privileges).toEqual(['DELETE', 'INSERT', 'SELECT', 'UPDATE']);
+    },
+  );
 
   it('keeps migration history away from reef_app', async () => {
     const code = await withClient('reef_app', (client) =>

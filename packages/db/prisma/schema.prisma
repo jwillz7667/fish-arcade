@@ -79,6 +79,11 @@ model User {
   consents        Consent[]
   supportTickets  SupportTicket[]
   payoutAddresses PayoutAddress[]
+  authSessions    AuthSession[]
+  mfa             UserMfa?
+  recoveryCodes   RecoveryCode[]
+  passkeys        Passkey[]
+  otpChallenges   OtpChallenge[]
 
   @@map("users")
 }
@@ -99,6 +104,129 @@ model Profile {
   user User @relation(fields: [userId], references: [id])
 
   @@map("profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Player auth (playbook Step 6, spec §5.1)
+// ---------------------------------------------------------------------------
+
+enum OtpPurpose {
+  signup
+  contact_change
+}
+
+enum OtpChannel {
+  email
+  sms
+}
+
+// One-time codes sent by email or SMS. code_hash is an HMAC of the code; it is NULL when no code
+// was sent (signup for an address that already has an account), so verification always fails
+// and the response matches a real challenge.
+model OtpChallenge {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purpose         OtpPurpose
+  channel         OtpChannel
+  destinationEnc  String     @map("destination_enc")
+  destinationBidx String     @map("destination_bidx")
+  // Set for contact changes: the account that asked for the new address.
+  userId          String?    @map("user_id") @db.Uuid
+  codeHash        String?    @map("code_hash")
+  attempts        Int        @default(0)
+  sendCount       Int        @default(1) @map("send_count")
+  lastSentAt      DateTime   @map("last_sent_at") @db.Timestamptz(3)
+  expiresAt       DateTime   @map("expires_at") @db.Timestamptz(3)
+  verifiedAt      DateTime?  @map("verified_at") @db.Timestamptz(3)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([destinationBidx, createdAt])
+  @@index([userId])
+  @@map("otp_challenges")
+}
+
+// A login session and its refresh-token family. Revoking it ends every token in the family.
+model AuthSession {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  // Time of the last primary authentication; step-up checks read it. Refresh never moves it.
+  authTime     DateTime  @map("auth_time") @db.Timestamptz(3)
+  // Authentication methods used, RFC 8176 values: pwd, otp, hwk (passkey), mfa.
+  amr          String[]
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokeReason String?   @map("revoke_reason")
+
+  user          User           @relation(fields: [userId], references: [id])
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+// Opaque refresh tokens, stored as SHA-256 hashes. Each is single-use: presenting one that is
+// already used revokes its session (reuse detection).
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String    @map("session_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+
+  session AuthSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId])
+  @@map("refresh_tokens")
+}
+
+model UserMfa {
+  userId               String    @id @map("user_id") @db.Uuid
+  totpSecretEnc        String?   @map("totp_secret_enc")
+  totpEnabledAt        DateTime? @map("totp_enabled_at") @db.Timestamptz(3)
+  // Highest accepted TOTP time step; codes at or below it are replays.
+  totpLastTimeStep     Int?      @map("totp_last_time_step")
+  totpPendingSecretEnc String?   @map("totp_pending_secret_enc")
+  totpPendingCreatedAt DateTime? @map("totp_pending_created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_mfa")
+}
+
+// Single-use 2FA recovery codes, stored as HMACs.
+model RecoveryCode {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, codeHash])
+  @@map("recovery_codes")
+}
+
+// WebAuthn credentials. Public keys only; private keys never leave the authenticator.
+model Passkey {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  signCount    BigInt    @map("sign_count")
+  transports   String[]
+  deviceType   String    @map("device_type")
+  isBackedUp   Boolean   @map("is_backed_up")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("passkeys")
 }
 
 model Device {
