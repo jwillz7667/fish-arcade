@@ -16,6 +16,7 @@ const DEV_API_ENV: EnvSource = {
   FIELD_ENCRYPTION_PROVIDER: 'local',
   FIELD_ENCRYPTION_LOCAL_KEY_FILE: '.keys/dev/field-master.key',
   BLIND_INDEX_KEY_FILE: '.keys/dev/blind-index.key',
+  CORS_ORIGINS: 'http://localhost:3000',
 };
 
 const PROD_API_ENV: EnvSource = {
@@ -26,6 +27,7 @@ const PROD_API_ENV: EnvSource = {
   FIELD_ENCRYPTION_PROVIDER: 'kms',
   FIELD_ENCRYPTION_KMS_KEY_ID: 'alias/reef-fields',
   BLIND_INDEX_KEY: SECRET,
+  CORS_ORIGINS: 'https://play.example.com,https://admin.example.com',
 };
 
 function captureConfigError(schema: z.ZodType, source: EnvSource): ConfigError | undefined {
@@ -59,10 +61,36 @@ describe('parseEnv', () => {
     expect(issuePaths(apiEnvSchema, {})).toEqual([
       'NODE_ENV',
       'API_PORT',
+      'CORS_ORIGINS',
       'DATABASE_URL',
       'REDIS_URL',
       'FIELD_ENCRYPTION_PROVIDER',
     ]);
+  });
+
+  it('parses CORS origins and applies HTTP defaults', () => {
+    expect(parseEnv(apiEnvSchema, PROD_API_ENV)).toMatchObject({
+      CORS_ORIGINS: ['https://play.example.com', 'https://admin.example.com'],
+      API_HOST: '0.0.0.0',
+      TRUST_PROXY_HOPS: 0,
+      RATE_LIMIT_PER_MINUTE: 300,
+      SHUTDOWN_TIMEOUT_MS: 10_000,
+    });
+  });
+
+  it.each(['*', 'https://play.example.com/path', 'ftp://x.example.com', ' , '])(
+    'rejects CORS_ORIGINS=%j',
+    (value) => {
+      const paths = issuePaths(apiEnvSchema, { ...DEV_API_ENV, CORS_ORIGINS: value });
+
+      expect([...new Set(paths.map((path) => path.split('.')[0]))]).toEqual(['CORS_ORIGINS']);
+    },
+  );
+
+  it('rejects plain-http CORS origins in production', () => {
+    expect(
+      issuePaths(apiEnvSchema, { ...PROD_API_ENV, CORS_ORIGINS: 'http://play.example.com' }),
+    ).toEqual(['CORS_ORIGINS']);
   });
 
   it.each([
@@ -114,6 +142,13 @@ describe('dev-only settings in production', () => {
       'FIELD_ENCRYPTION_PROVIDER',
     ]);
   });
+
+  it.each(['DATABASE_URL', 'REDIS_URL'])(
+    'reports a malformed %s in production instead of crashing',
+    (key) => {
+      expect(issuePaths(apiEnvSchema, { ...PROD_API_ENV, [key]: 'not a url' })).toEqual([key]);
+    },
+  );
 
   it('allows plaintext connections outside production', () => {
     expect(issuePaths(apiEnvSchema, DEV_API_ENV)).toEqual([]);

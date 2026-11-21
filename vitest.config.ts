@@ -18,6 +18,15 @@ export default defineConfig({
         // Needs a real database; covered by `pnpm test:integration` instead.
         'packages/db/src/**',
         'apps/api/src/wallet/**',
+        // NestJS wiring needs Postgres and Redis; covered by the API end-to-end tests.
+        'apps/api/src/app/**',
+        'apps/api/src/health/**',
+        'apps/api/src/http/**/*.guard.ts',
+        'apps/api/src/http/**/*.interceptor.ts',
+        'apps/api/src/http/**/*.filter.ts',
+        'apps/api/src/http/**/*-store.ts',
+        'apps/api/src/http/**/redis-*.ts',
+        'apps/api/src/main.ts',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],
       thresholds: {

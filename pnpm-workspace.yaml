@@ -14,6 +14,8 @@ allowBuilds:
   '@prisma/engines': true
   prisma: true
   esbuild: true
+  # Install-time telemetry pulled in by swagger-ui-dist; never run it.
+  '@scarf/scarf': false
 
 # Security overrides for transitive dependencies. Remove each once the parent ships the fix.
 overrides:

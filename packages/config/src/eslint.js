@@ -111,6 +111,8 @@ export function createReefConfig({ rootDir }) {
       },
       rules: {
         'no-restricted-properties': ['error', MATH_RANDOM_RESTRICTION],
+        // NestJS modules are decorated classes with only static factories.
+        '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
         'no-console': 'error',
       },
     },

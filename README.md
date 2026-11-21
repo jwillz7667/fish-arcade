@@ -30,7 +30,8 @@ pnpm db:seed           # admin roles and fail-closed system flags; refuses produ
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
 
 # Integration tests create and drop their own database on any Postgres 16 superuser connection
-TEST_DATABASE_ADMIN_URL=postgresql://reef:change-me@127.0.0.1:5432/postgres pnpm test:integration
+TEST_DATABASE_ADMIN_URL=postgresql://reef:change-me@127.0.0.1:5432/postgres \
+  TEST_REDIS_URL=redis://:change-me@127.0.0.1:6379/15 pnpm test:integration
 ```
 
 ## Layout

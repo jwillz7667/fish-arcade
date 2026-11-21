@@ -50,6 +50,15 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:7.4.12-alpine3.22@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -63,6 +72,7 @@ jobs:
       - run: pnpm test:integration
         env:
           TEST_DATABASE_ADMIN_URL: postgresql://postgres@localhost:5432/postgres
+          TEST_REDIS_URL: redis://localhost:6379/15
 
   audit:
     name: Dependency audit
