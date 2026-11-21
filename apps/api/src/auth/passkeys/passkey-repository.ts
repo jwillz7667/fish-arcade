@@ -34,6 +34,13 @@ export const PASSKEY_UNIQUE_CONSTRAINTS = ['passkeys_credential_id_key'];
 
 /** SQL for `passkeys`. Every value is a bound parameter. */
 export const passkeyRepository = {
+  /**
+   * @param client Pool or transaction client.
+   * @param userId Owner.
+   * @param passkey Verified registration.
+   * @returns The new passkey's ID.
+   * @throws DatabaseError (unique violation) when the credential is already registered.
+   */
   async insert(client: Queryable, userId: string, passkey: NewPasskey): Promise<string> {
     const { rows } = await client.query<{ id: string }>(
       `INSERT INTO passkeys
@@ -54,6 +61,11 @@ export const passkeyRepository = {
     return row.id;
   },
 
+  /**
+   * @param client Pool or transaction client.
+   * @param credentialId WebAuthn credential ID from the browser.
+   * @returns The passkey, or undefined when the credential is unknown.
+   */
   async findByCredentialId(
     client: Queryable,
     credentialId: string,
@@ -76,6 +88,11 @@ export const passkeyRepository = {
     };
   },
 
+  /**
+   * @param client Pool or transaction client.
+   * @param userId Owner.
+   * @returns Credential IDs to exclude when registering another passkey.
+   */
   async listCredentialIds(client: Queryable, userId: string): Promise<string[]> {
     const { rows } = await client.query<{ credential_id: string }>(
       'SELECT credential_id FROM passkeys WHERE user_id = $1',

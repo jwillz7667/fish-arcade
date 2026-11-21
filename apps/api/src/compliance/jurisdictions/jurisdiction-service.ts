@@ -75,8 +75,8 @@ export class JurisdictionService {
 
   /**
    * Schedules a rule change (spec §4.1: changes take effect at a scheduled time, never mid-
-   * session) and busts the cache. Only the Compliance role may call this; the admin route that
-   * enforces it arrives in Step 9.
+   * session) and busts the cache. Only the Compliance role may call this, through
+   * `POST /admin/jurisdictions` (`jurisdictions.write`).
    *
    * @param rule The new rule and its legal memo.
    * @param actor The admin making the change, and their IP.

@@ -31,6 +31,12 @@ const columnsFor = (channel: ContactChannel): { enc: string; bidx: string } =>
 
 /** SQL for `users` and `profiles`. Every value is a bound parameter. */
 export const userRepository = {
+  /**
+   * @param client Pool or transaction client.
+   * @param channel Which contact the blind index is for.
+   * @param bidx Blind index of the normalized email or phone.
+   * @returns The account's ID, password hash, and status, or undefined.
+   */
   async findByContact(
     client: Queryable,
     channel: ContactChannel,
@@ -51,6 +57,13 @@ export const userRepository = {
       : { id: row.id, passwordHash: row.password_hash, status: row.status };
   },
 
+  /**
+   * Creates the user and profile rows for a new player.
+   *
+   * @param client Transaction client (the account-creation transaction).
+   * @param player The account, with contact and date of birth already encrypted.
+   * @throws DatabaseError (unique violation) when the contact is already registered.
+   */
   async insertPlayer(client: Queryable, player: NewPlayer): Promise<void> {
     const columns = columnsFor(player.channel);
     await client.query(
@@ -63,6 +76,11 @@ export const userRepository = {
     );
   },
 
+  /**
+   * @param client Pool or transaction client.
+   * @param userId Account.
+   * @param hash New argon2id hash.
+   */
   async updatePasswordHash(client: Queryable, userId: string, hash: string): Promise<void> {
     await client.query('UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1', [
       userId,
@@ -70,6 +88,13 @@ export const userRepository = {
     ]);
   },
 
+  /**
+   * Sets the account's email or phone.
+   *
+   * @param client Transaction client.
+   * @param input Account, channel, encrypted value, and blind index.
+   * @throws DatabaseError (unique violation) when another account has that contact.
+   */
   async updateContact(
     client: Queryable,
     input: { userId: string; channel: ContactChannel; enc: string; bidx: string },

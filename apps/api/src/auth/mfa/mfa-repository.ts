@@ -19,6 +19,11 @@ interface MfaRow {
 
 /** SQL for `user_mfa` and `recovery_codes`. Every value is a bound parameter. */
 export const mfaRepository = {
+  /**
+   * @param client Pool or transaction client.
+   * @param userId Account.
+   * @returns The account's TOTP state, or undefined when it never started enrolment.
+   */
   async find(client: Queryable, userId: string): Promise<MfaRecord | undefined> {
     const { rows } = await client.query<MfaRow>(
       `SELECT totp_secret_enc, totp_enabled_at, totp_last_time_step, totp_pending_secret_enc,
@@ -37,6 +42,14 @@ export const mfaRepository = {
     };
   },
 
+  /**
+   * Stores a TOTP secret awaiting confirmation, replacing any earlier pending one.
+   *
+   * @param client Pool or transaction client.
+   * @param userId Account.
+   * @param secretEnc Encrypted secret.
+   * @param at When enrolment started, for its expiry.
+   */
   async setPending(client: Queryable, userId: string, secretEnc: string, at: Date): Promise<void> {
     await client.query(
       `INSERT INTO user_mfa (user_id, totp_pending_secret_enc, totp_pending_created_at)
@@ -89,6 +102,12 @@ export const mfaRepository = {
     return result.rowCount === 1;
   },
 
+  /**
+   * Turns TOTP off and deletes the recovery codes.
+   *
+   * @param client Transaction client.
+   * @param userId Account.
+   */
   async disable(client: Queryable, userId: string): Promise<void> {
     await client.query(
       `UPDATE user_mfa
@@ -100,6 +119,13 @@ export const mfaRepository = {
     await client.query('DELETE FROM recovery_codes WHERE user_id = $1', [userId]);
   },
 
+  /**
+   * Replaces every recovery code, so old ones stop working.
+   *
+   * @param client Transaction client.
+   * @param userId Account.
+   * @param codeHashes Hashes of the new codes.
+   */
   async replaceRecoveryCodes(
     client: Queryable,
     userId: string,
