@@ -65,6 +65,16 @@ describe('refresh tokens', () => {
     expect((await whoAmI(next)).statusCode).toBe(200);
   });
 
+  it('revokes the session when the account has been closed', async () => {
+    const session = await signUp(t);
+    await db.query(`UPDATE users SET status = 'closed' WHERE id = $1`, [session.userId]);
+
+    const rotated = await refresh(session.refreshToken);
+
+    expect(rotated.statusCode).toBe(401);
+    expect((await whoAmI(session)).statusCode).toBe(401);
+  });
+
   it('stores refresh tokens only as hashes', async () => {
     const session = await signUp(t);
 

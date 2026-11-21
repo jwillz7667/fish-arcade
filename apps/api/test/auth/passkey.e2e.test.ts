@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import pg from 'pg';
+import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 
 import type { ErrorBody } from '../../src/http/error-response.js';
 import { buildTestApp, type TestApp } from '../http/test-app.js';
@@ -18,13 +19,16 @@ import { SoftAuthenticator } from '../support/soft-authenticator.js';
 const ORIGIN = 'http://localhost:3000';
 
 let t: TestApp;
+let db: pg.Pool;
 
 beforeAll(async () => {
   t = await buildTestApp();
+  db = new pg.Pool({ connectionString: inject('databaseUrls').admin, max: 2 });
 });
 
 afterAll(async () => {
   await t.app.close();
+  await db.end();
 });
 
 const errorCode = (response: InjectResponse): string => response.json<ErrorBody>().error.code;
@@ -78,6 +82,16 @@ describe('passkeys', () => {
       headers: asSession(login).bearer,
     });
     expect(info.json()).toMatchObject({ amr: ['hwk', 'mfa'] });
+  });
+
+  it('refuses a passkey login to a closed account', async () => {
+    const authenticator = new SoftAuthenticator('localhost', ORIGIN);
+    const signup = await signUpWithPasskey(authenticator);
+    await db.query(`UPDATE users SET status = 'closed' WHERE id = $1`, [asSession(signup).userId]);
+
+    const login = await passkeyLogin(authenticator);
+
+    expect([login.statusCode, errorCode(login)]).toEqual([401, 'INVALID_CREDENTIALS']);
   });
 
   it('adds a passkey to a password account', async () => {
