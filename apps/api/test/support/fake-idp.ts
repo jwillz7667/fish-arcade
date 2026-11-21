@@ -7,6 +7,8 @@ import { exportJWK, SignJWT } from 'jose';
 /** What the fake IdP asserts about the user who "logs in". */
 export interface FakeIdentity {
   readonly email: string;
+  /** IdP user ID. Defaults to one derived from the email: the same person every time. */
+  readonly subject?: string;
   readonly isEmailVerified?: boolean;
   /** Override claims to test rejection paths. */
   readonly audience?: string;
@@ -127,7 +129,10 @@ export class FakeIdp {
       })
         .setProtectedHeader({ alg: 'ES256', kid: 'idp-1' })
         .setIssuer(this.issuer)
-        .setSubject(randomUUID())
+        .setSubject(
+          issued.identity.subject ??
+            createHash('sha256').update(issued.identity.email).digest('hex').slice(0, 32),
+        )
         .setAudience(issued.identity.audience ?? issued.clientId)
         .setIssuedAt()
         .setExpirationTime('5m')

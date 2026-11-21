@@ -33,12 +33,20 @@ const discoverySchema = z.object({
 const tokenSchema = z.object({ id_token: z.string().min(1) });
 
 const claimsSchema = z.object({
+  sub: z.string().min(1).max(255),
   email: z.email(),
   email_verified: z.literal(true),
   nonce: z.string().min(1),
 });
 
 type Discovery = z.infer<typeof discoverySchema>;
+
+/** Who the IdP says signed in. */
+export interface OidcIdentity {
+  readonly issuer: string;
+  readonly subject: string;
+  readonly email: string;
+}
 
 /**
  * OIDC authorization code flow with PKCE for the back office (playbook Step 9). Built on `jose`
@@ -84,11 +92,11 @@ export class OidcClient {
    *
    * @param code Authorization code from the callback.
    * @param pending What `start` issued for this login.
-   * @returns The verified staff email, lowercased.
+   * @returns The verified identity: issuer, subject, and lowercased email.
    * @throws AuthError when the ID token is invalid, unverified, or for another login.
    * @throws DependencyUnavailableError when the IdP cannot be reached.
    */
-  async finish(code: string, pending: OidcPending): Promise<string> {
+  async finish(code: string, pending: OidcPending): Promise<OidcIdentity> {
     const { document, keys } = await this.#discover();
     const idToken = await this.#exchange(document.token_endpoint, code, pending.codeVerifier);
     let payload: unknown;
@@ -106,7 +114,11 @@ export class OidcClient {
     if (!claims.success || claims.data.nonce !== pending.nonce) {
       throw new AuthError({ message: 'OIDC ID token claims rejected' });
     }
-    return claims.data.email.toLowerCase();
+    return {
+      issuer: document.issuer,
+      subject: claims.data.sub,
+      email: claims.data.email.toLowerCase(),
+    };
   }
 
   async #exchange(tokenEndpoint: string, code: string, codeVerifier: string): Promise<string> {

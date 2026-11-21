@@ -10,7 +10,8 @@ import { TicketStore } from '../../auth/tickets/ticket-store.js';
 import { ACCOUNT_BACKOFF } from '../../auth/auth-policy.js';
 import type { AdminMfaService } from './admin-mfa-service.js';
 import type { AdminSessionService, IssuedAdminSession } from './admin-session-service.js';
-import type { OidcClient, OidcPending } from './oidc-client.js';
+import type { OidcClient, OidcIdentity, OidcPending } from './oidc-client.js';
+import { isUniqueViolationOn } from '../../db/transaction.js';
 
 /** How admins prove who they are before MFA. `dev_local` is rejected in production. */
 export type AdminLoginMode = 'oidc' | 'dev_local';
@@ -112,8 +113,8 @@ export class AdminLoginService {
     if (pending === undefined || !safeEqual(input.state, pending.state)) {
       throw new AuthError({ message: 'OIDC state mismatch or expired login' });
     }
-    const email = await oidc.finish(input.code, pending);
-    return this.#afterPrimaryLogin(email, input.ip, 'oidc');
+    const identity = await oidc.finish(input.code, pending);
+    return this.#afterPrimaryLogin(identity.email, input.ip, 'oidc', identity);
   }
 
   /**
@@ -170,29 +171,61 @@ export class AdminLoginService {
     email: string,
     ip: string,
     method: AdminLoginMode,
+    identity?: OidcIdentity,
   ): Promise<{ mfaTicket: string; next: AdminMfaStep }> {
     const normalized = email.trim().toLowerCase();
     const domain = normalized.split('@')[1] ?? '';
-    const { rows } = await this.deps.pool.query<{ id: string }>(
-      `SELECT id FROM admin_users WHERE email = $1 AND status = 'active'`,
+    const { rows } = await this.deps.pool.query<{
+      id: string;
+      oidc_issuer: string | null;
+      oidc_subject: string | null;
+    }>(
+      `SELECT id, oidc_issuer, oidc_subject FROM admin_users WHERE email = $1 AND status = 'active'`,
       [normalized],
     );
-    const adminId = rows[0]?.id;
-    if (adminId === undefined || !this.deps.allowedEmailDomains.includes(domain)) {
+    const admin = rows[0];
+    const isKnown = admin !== undefined && this.deps.allowedEmailDomains.includes(domain);
+    if (!isKnown || (identity !== undefined && !(await this.#bindIdentity(admin.id, identity)))) {
       await this.deps.audit.record({
         actorType: 'admin',
         actorId: null,
         action: 'admin.login.denied',
-        details: { method },
+        details: { method, reason: isKnown ? 'oidc_subject_mismatch' : 'unknown_admin' },
         ip,
       });
       throw new AuthError({ code: ErrorCode.INVALID_CREDENTIALS });
     }
+    const adminId = admin.id;
     await this.#audit('admin.login.primary_passed', adminId, ip, method);
     const next = (await this.deps.mfa.isEnrolled(adminId))
       ? 'mfa_required'
       : 'mfa_enrollment_required';
     return { mfaTicket: await this.#mfaTickets.issue({ adminId }), next };
+  }
+
+  /**
+   * Binds the admin to the IdP identity on the first SSO login, then requires it to match.
+   * Someone handed a former colleague's email at the IdP gets a different subject and is
+   * refused.
+   *
+   * @returns True when the identity is (now) the admin's own.
+   */
+  async #bindIdentity(adminId: string, identity: OidcIdentity): Promise<boolean> {
+    try {
+      const { rows } = await this.deps.pool.query<{ oidc_issuer: string; oidc_subject: string }>(
+        `UPDATE admin_users
+            SET oidc_issuer = coalesce(oidc_issuer, $2), oidc_subject = coalesce(oidc_subject, $3)
+          WHERE id = $1
+          RETURNING oidc_issuer, oidc_subject`,
+        [adminId, identity.issuer, identity.subject],
+      );
+      const bound = rows[0];
+      return bound?.oidc_issuer === identity.issuer && bound.oidc_subject === identity.subject;
+    } catch (error) {
+      // The subject already belongs to another admin.
+      if (isUniqueViolationOn(error, ['admin_users_oidc_issuer_oidc_subject_key'])) return false;
+      throw error;
+    }
   }
 
   async #ticket(mfaTicket: string): Promise<{ adminId: string }> {
