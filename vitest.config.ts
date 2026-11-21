@@ -10,7 +10,14 @@ export default defineConfig({
       // Matched relative to each project's root, so the workspace prefix is a wildcard.
       include: ['**/src/**/*.{ts,tsx}'],
       // Barrels only re-export; vitest.ts is test tooling loaded before coverage starts.
-      exclude: ['**/*.test.{ts,tsx}', '**/index.ts', 'packages/config/src/vitest.ts'],
+      exclude: [
+        '**/*.test.{ts,tsx}',
+        '**/index.ts',
+        '**/generated/**',
+        'packages/config/src/vitest.ts',
+        // Needs a real database; covered by `pnpm test:integration` instead.
+        'packages/db/src/**',
+      ],
       reporter: ['text-summary', 'html', 'json-summary'],
       thresholds: {
         // CLAUDE.md: at least 80% everywhere, 100% branches on money, ledger, and math.

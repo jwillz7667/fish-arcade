@@ -53,6 +53,7 @@ export function createReefConfig({ rootDir }) {
         '**/.turbo/**',
         '**/coverage/**',
         '.keys/**',
+        '**/generated/**',
       ],
     },
     js.configs.recommended,
@@ -83,12 +84,24 @@ export function createReefConfig({ rootDir }) {
     },
     {
       files: CONSOLE_ALLOWED_FILES,
-      rules: { 'no-console': 'off' },
+      rules: {
+        'no-console': 'off',
+        // Scripts build file paths from import.meta.url, never from input.
+        'security/detect-non-literal-fs-filename': 'off',
+      },
     },
     {
-      // CLAUDE.md: non-null assertions are allowed in tests only.
       files: TEST_FILES,
-      rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+      rules: {
+        // CLAUDE.md: non-null assertions are allowed in tests only.
+        '@typescript-eslint/no-non-null-assertion': 'off',
+        // Vitest asymmetric matchers (expect.objectContaining and friends) are typed `any`.
+        '@typescript-eslint/no-unsafe-assignment': 'off',
+        // Test fixtures index by literal keys and write temp files; there is no untrusted input.
+        'security/detect-object-injection': 'off',
+        'security/detect-non-literal-fs-filename': 'off',
+        'security/detect-possible-timing-attacks': 'off',
+      },
     },
   );
 }

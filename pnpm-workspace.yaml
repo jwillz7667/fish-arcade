@@ -7,3 +7,10 @@ engineStrict: true
 savePrefix: ''
 # Supply-chain guard: never resolve a version published less than 7 days ago (minutes).
 minimumReleaseAge: 10080
+
+# Dependency install scripts are blocked unless listed. Prisma downloads its schema engine
+# (needed by `prisma migrate`); esbuild verifies its platform binary.
+allowBuilds:
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
