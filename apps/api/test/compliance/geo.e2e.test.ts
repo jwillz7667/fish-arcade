@@ -241,12 +241,13 @@ describe('jurisdiction changes', () => {
     );
     // Redis outlives the per-run database; start without a cached rule from an earlier run.
     await jurisdictions.invalidate(state);
-    const ip = nextIp();
+    // A fresh client IP per phase, so no per-IP state (rate limits, backoff) carries across.
     const playSc = async () => {
+      const ip = nextIp();
       const player = (await signUp(t)).bearer;
       const geo = await geoHeader(t, 'play_sc', { ip, place: state, headers: player });
       const headers = { ...player, ...geo };
-      return { headers, response: await post(t, ROUTE.play_sc, {}, { ip, headers }) };
+      return { ip, headers, response: await post(t, ROUTE.play_sc, {}, { ip, headers }) };
     };
     const before = (await playSc()).response;
 
@@ -269,10 +270,18 @@ describe('jurisdiction changes', () => {
     const stillBefore = late.response;
     // Past the change, the same still-valid tokens are refused; the cached entry no longer counts.
     t.auth.clock.advance(6 * 60_000);
-    const after = await post(t, ROUTE.play_sc, {}, { ip, headers: late.headers });
+    const after = await post(t, ROUTE.play_sc, {}, { ip: late.ip, headers: late.headers });
 
-    expect([before.statusCode, stillBefore.statusCode]).toEqual([201, 201]);
-    expect([after.statusCode, errorCode(after)]).toEqual([403, 'COMPLIANCE_BLOCKED']);
+    // One object, so a failure shows every phase's response at once.
+    expect({
+      before: before.statusCode,
+      stillBefore: [stillBefore.statusCode, stillBefore.body],
+      after: [after.statusCode, errorCode(after)],
+    }).toEqual({
+      before: 201,
+      stillBefore: [201, stillBefore.body],
+      after: [403, 'COMPLIANCE_BLOCKED'],
+    });
     const audit = await db.query(
       `SELECT 1 FROM audit_logs WHERE action = 'compliance.jurisdiction.scheduled' AND target_id = $1`,
       [state],
