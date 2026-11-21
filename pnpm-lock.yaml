@@ -95,6 +95,9 @@ importers:
       '@reef/money':
         specifier: workspace:*
         version: link:../../packages/money
+      '@reef/screening':
+        specifier: workspace:*
+        version: link:../../packages/screening
       '@simplewebauthn/server':
         specifier: 14.1.0
         version: 14.1.0
@@ -189,6 +192,9 @@ importers:
       '@reef/pricing':
         specifier: workspace:*
         version: link:../../packages/pricing
+      '@reef/screening':
+        specifier: workspace:*
+        version: link:../../packages/screening
       ioredis:
         specifier: 6.0.0
         version: 6.0.0
@@ -199,6 +205,9 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
+      '@reef/crypto-fields':
+        specifier: workspace:*
+        version: link:../../packages/crypto-fields
       '@reef/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -495,6 +504,37 @@ importers:
       '@reef/config':
         specifier: workspace:*
         version: link:../config
+
+  packages/screening:
+    dependencies:
+      '@reef/bitcoin':
+        specifier: workspace:*
+        version: link:../bitcoin
+      '@reef/errors':
+        specifier: workspace:*
+        version: link:../errors
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@reef/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.1.0
+        version: 5.1.0(@types/node@22.20.5)(@vitest/coverage-v8@5.1.0)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/simulator:
     devDependencies:
