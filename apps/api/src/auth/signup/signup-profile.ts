@@ -43,15 +43,19 @@ export function ageInYears(dateOfBirth: string, on: Date): number {
 }
 
 /**
- * Spec §5.1 age gate: 18+ by default. States that require 21+ are enforced by the
- * jurisdiction gate in Step 7.
+ * Spec §5.1 age gate: 18+ by default, or the state's `min_age` where that is higher.
  *
  * @param dateOfBirth `YYYY-MM-DD`.
  * @param now Current time.
+ * @param minimumAge The age required; never below the platform minimum of 18.
  * @throws ComplianceBlockedError when the player is under the minimum age.
  */
-export function assertMinimumAge(dateOfBirth: string, now: Date): void {
-  if (ageInYears(dateOfBirth, now) < AUTH_POLICY.minimumAgeYears) {
+export function assertMinimumAge(
+  dateOfBirth: string,
+  now: Date,
+  minimumAge: number = AUTH_POLICY.minimumAgeYears,
+): void {
+  if (ageInYears(dateOfBirth, now) < Math.max(minimumAge, AUTH_POLICY.minimumAgeYears)) {
     throw new ComplianceBlockedError({ message: 'Under minimum age' });
   }
 }

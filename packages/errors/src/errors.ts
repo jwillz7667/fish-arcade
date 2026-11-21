@@ -105,14 +105,18 @@ export class RateLimitedError extends DomainError {
   }
 }
 
+/** Codes a {@link ComplianceBlockedError} may carry. */
+export type ComplianceErrorCode =
+  typeof ErrorCode.COMPLIANCE_BLOCKED | typeof ErrorCode.GEO_CHECK_REQUIRED;
+
 /**
  * A compliance control (geofence, KYC, sanctions, responsible gaming) blocks the action.
  * HTTP 403. Spec §15: compliance checks fail closed.
  */
 export class ComplianceBlockedError extends DomainError {
-  /** @param options Message overrides and cause. */
-  constructor(options: DomainErrorOptions = {}) {
-    super({ ...options, code: ErrorCode.COMPLIANCE_BLOCKED, httpStatus: 403 });
+  /** @param options Message overrides, cause, and a specific compliance code. */
+  constructor(options: DomainErrorOptions & { readonly code?: ComplianceErrorCode } = {}) {
+    super({ ...options, code: options.code ?? ErrorCode.COMPLIANCE_BLOCKED, httpStatus: 403 });
   }
 }
 

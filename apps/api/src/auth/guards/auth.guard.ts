@@ -9,7 +9,7 @@ import { COOKIE_NAMES, readCookies } from '../http/cookies.js';
 import { isValidCsrfToken } from '../sessions/csrf.js';
 import { SessionService } from '../sessions/session-service.js';
 import { AccessTokenService } from '../tokens/access-token-service.js';
-import { IS_PUBLIC } from './public.decorator.js';
+import { IS_AUTH_OPTIONAL, IS_PUBLIC } from './public.decorator.js';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const BEARER = /^Bearer ([A-Za-z0-9._-]+)$/i;
@@ -52,15 +52,21 @@ export class AuthGuard implements CanActivate {
    * @throws ForbiddenError CSRF_INVALID on a cookie-authenticated write without the token.
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (isPublic === true) return true;
+    const targets = [context.getHandler(), context.getClass()];
+    if (this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC, targets) === true) {
+      return true;
+    }
 
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const credential = credentialOf(request);
-    if (credential === undefined) throw new AuthError();
+    if (credential === undefined) {
+      const isOptional = this.reflector.get<boolean | undefined>(
+        IS_AUTH_OPTIONAL,
+        context.getHandler(),
+      );
+      if (isOptional === true) return true;
+      throw new AuthError();
+    }
     const claims = await this.accessTokens.verify(credential.token);
     if (await this.sessions.isRevoked(claims.sessionId)) {
       throw new AuthError({ message: 'Session revoked' });

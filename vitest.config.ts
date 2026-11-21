@@ -46,6 +46,14 @@ export default defineConfig({
         'apps/api/src/auth/signup/signup-service.ts',
         'apps/api/src/auth/tickets/**',
         'apps/api/src/auth/http/token-delivery.ts',
+        // Geolocation and jurisdiction services, stores, guard, and route: covered by the
+        // compliance end-to-end tests. The pure policy, decision, and token code stays here.
+        'apps/api/src/compliance/compliance-providers.ts',
+        'apps/api/src/compliance/**/*-repository.ts',
+        'apps/api/src/compliance/**/*-service.ts',
+        'apps/api/src/compliance/**/*.controller.ts',
+        'apps/api/src/compliance/**/*.guard.ts',
+        'apps/api/src/shared/**',
       ],
       reporter: ['text-summary', 'html', 'json-summary'],
       thresholds: {

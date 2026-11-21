@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { FieldEncryption } from '@reef/crypto-fields';
-import { AuthError, ConflictError, isDomainError } from '@reef/errors';
+import { AuthError, ComplianceBlockedError, ConflictError, isDomainError } from '@reef/errors';
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   RegistrationResponseJSON,
@@ -10,9 +10,14 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 
 import type { AuditWriter } from '../../audit/audit-writer.js';
+import {
+  decideJurisdiction,
+  type JurisdictionRule,
+  type JurisdictionService,
+} from '../../compliance/index.js';
 import { isUniqueViolationOn, withTransaction } from '../../db/transaction.js';
 import type { BotVerifier } from '../bot/turnstile-verifier.js';
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import type { OtpService } from '../otp/otp-service.js';
 import type { NewPasskey } from '../passkeys/passkey-repository.js';
 import type { PasskeyService } from '../passkeys/passkey-service.js';
@@ -43,6 +48,7 @@ export type SignupCredential =
 /** Collaborators for {@link SignupService}. */
 export interface SignupServiceDeps {
   readonly pool: Pool;
+  readonly jurisdictions: JurisdictionService;
   readonly encryption: FieldEncryption;
   readonly otp: OtpService;
   readonly sessions: SessionService;
@@ -158,9 +164,11 @@ export class SignupService {
    * Creates the account and signs it in. Everything that can fail on input is checked before
    * the ticket is spent, so a rejected password does not force the player to start over.
    *
-   * @param input Ticket, profile, credential, and client IP.
+   * @param input Ticket, profile, credential, client IP, and the rule of the state the device is
+   *   in (from the jurisdiction gate).
    * @returns Tokens for the new session.
-   * @throws ComplianceBlockedError when under the minimum age.
+   * @throws ComplianceBlockedError when the declared home state does not allow signup, or the
+   *   player is under the higher of the two states' minimum ages.
    * @throws ValidationError when the password is breached.
    * @throws AuthError when the ticket is invalid or the passkey fails verification.
    * @throws ConflictError when the contact was registered concurrently.
@@ -170,9 +178,20 @@ export class SignupService {
     profile: SignupProfile;
     credential: SignupCredential;
     ip: string | null;
+    locationRule: JurisdictionRule;
   }): Promise<IssuedTokens> {
     const now = this.deps.clock.now();
-    assertMinimumAge(input.profile.dateOfBirth, now);
+    // Both where the player is and where they say they live must allow signup; the stricter
+    // minimum age applies.
+    const homeRule = await this.deps.jurisdictions.ruleFor(input.profile.stateCode);
+    if (!decideJurisdiction('signup', homeRule).isAllowed || homeRule === undefined) {
+      throw new ComplianceBlockedError({ message: 'Home state does not allow signup' });
+    }
+    assertMinimumAge(
+      input.profile.dateOfBirth,
+      now,
+      Math.max(input.locationRule.minAge, homeRule.minAge),
+    );
     const ticket = await this.#ticket(input.signupTicket);
     const verified = await this.deps.otp.loadVerified(ticket.challengeId, 'signup');
 

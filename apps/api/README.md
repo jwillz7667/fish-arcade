@@ -85,6 +85,23 @@ Every route needs a valid access token unless it is marked `@Public()`: the glob
 
 **Keys.** `pnpm keys:dev` writes `.keys/dev/auth-jwt.pem` and `.keys/dev/auth-hmac.key` (gitignored, never overwritten). Production sets `AUTH_JWT_PRIVATE_KEY` and `AUTH_HMAC_KEY` inline from Secrets Manager.
 
+## Geolocation and jurisdictions (`src/compliance`, Step 7, spec §4.1, §15)
+
+The client checks location for an action, then sends the result with the gated request:
+
+1. `POST /v1/geo/check` with `{ context, devicePayload }`, where `context` is `signup`, `purchase`, `play_sc`, or `redeem`. Signup checks are anonymous; the others need a signed-in player.
+2. The provider places the device. VPN or proxy, confidence below `GEO_MIN_CONFIDENCE`, or no US state blocks. A provider error or a timeout (`GEO_PROVIDER_TIMEOUT_MS`) is answered with 503. Every check, including failures, is a `geo_checks` row.
+3. The state's jurisdiction rule decides: X blocks everything; S allows signup and Gold Coin purchases; P allows everything, with redemption only when `sc_redemption_enabled`. A state with no row is blocked.
+4. An allowed check returns a `geoToken`: an HMAC-signed claim bound to the action, the player (or none, for signup), the client IP, and a 10-minute expiry (spec §15 rechecks SC play every 10 minutes).
+
+`@RequireJurisdiction('purchase')` on a route verifies `X-Geo-Token` and re-reads the state's rule, so a scheduled change applies even to tokens issued before it. Signup start and completion are gated. At completion, the declared home state must also allow signup, and the higher of the two states' `min_age` applies (never below 18).
+
+`JurisdictionService` reads the table through Redis: entries live 60 seconds, or until the next scheduled row takes effect if that is sooner. `schedule()` adds a future-dated row, audits it, and busts the cache; the Compliance-only admin route for it arrives in Step 9.
+
+**Providers.** `GEO_PROVIDER=dev_stub` is the only option, and config rejects it in production. The stub reads `X-Reef-Dev-Geo`: `NV`, `NV;vpn`, `NV;confidence=0.5`, `abroad`, `error`, or `timeout`. A missing header is an error, so it fails closed.
+
+**Dev data.** `pnpm db:seed` (refused in production) adds one row per state: spec §4.3's likely-blocked states as X and the rest as S. No state is P until counsel and Compliance set production rows.
+
 ## Test
 
 ```sh

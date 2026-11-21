@@ -4,7 +4,7 @@ import { AuthError } from '@reef/errors';
 import { SignJWT } from 'jose';
 import { describe, expect, it } from 'vitest';
 
-import type { Clock } from '../clock.js';
+import type { Clock } from '../../shared/clock.js';
 import type { AuthKeys } from '../crypto/auth-keys.js';
 import { AccessTokenService } from './access-token-service.js';
 

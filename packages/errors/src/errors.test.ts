@@ -29,6 +29,11 @@ describe('DomainError subclasses', () => {
     [new ConflictError(), ErrorCode.CONFLICT, 409],
     [new RateLimitedError(), ErrorCode.RATE_LIMITED, 429],
     [new ComplianceBlockedError(), ErrorCode.COMPLIANCE_BLOCKED, 403],
+    [
+      new ComplianceBlockedError({ code: ErrorCode.GEO_CHECK_REQUIRED }),
+      ErrorCode.GEO_CHECK_REQUIRED,
+      403,
+    ],
     [new InsufficientFundsError(), ErrorCode.INSUFFICIENT_FUNDS, 422],
     [
       new DependencyUnavailableError({ dependency: 'price-oracle' }),

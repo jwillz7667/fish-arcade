@@ -6,7 +6,7 @@ import type { Pool } from 'pg';
 
 import { withTransaction } from '../../db/transaction.js';
 import { AUTH_POLICY } from '../auth-policy.js';
-import { addMs, type Clock } from '../clock.js';
+import { addMs, type Clock } from '../../shared/clock.js';
 import { safeEqual } from '../crypto/secrets.js';
 import {
   accountExistsMessage,

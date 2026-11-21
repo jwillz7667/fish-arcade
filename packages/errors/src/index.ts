@@ -13,6 +13,7 @@ export {
   RateLimitedError,
   ValidationError,
   type AuthErrorCode,
+  type ComplianceErrorCode,
   type ConflictErrorCode,
   type DomainErrorOptions,
   type ForbiddenErrorCode,

@@ -3,7 +3,13 @@ import { afterAll, describe, expect, inject, it } from 'vitest';
 
 import { createPrismaClient } from '../src/client.js';
 import { bootstrapDatabaseRoles, claimPublicSchema } from '../src/roles.js';
-import { ADMIN_ROLE_NAMES, DEFAULT_SYSTEM_FLAGS, seedReferenceData } from '../src/seed.js';
+import {
+  ADMIN_ROLE_NAMES,
+  DEFAULT_SYSTEM_FLAGS,
+  SPEC_BLOCKED_STATES,
+  seedReferenceData,
+  US_STATE_CODES,
+} from '../src/seed.js';
 import { withClient } from './connect.js';
 
 const prisma = createPrismaClient(inject('databaseUrls').reef_app);
@@ -27,6 +33,20 @@ describe('seedReferenceData', () => {
     expect(Object.fromEntries(flags.map((flag) => [flag.key, flag.value]))).toEqual(
       DEFAULT_SYSTEM_FLAGS,
     );
+  });
+
+  it('seeds a dev jurisdiction row per state: spec §4.3 states blocked, the rest S, none P', async () => {
+    await seedReferenceData(prisma, 'development');
+
+    const rows = await prisma.jurisdiction.findMany();
+    const modeOf = Object.fromEntries(rows.map((row) => [row.stateCode, row.mode]));
+
+    expect(rows).toHaveLength(US_STATE_CODES.length);
+    expect(SPEC_BLOCKED_STATES.every((state) => modeOf[state] === 'X')).toBe(true);
+    expect(rows.filter((row) => row.mode === 'P')).toEqual([]);
+    expect(
+      rows.every((row) => !row.scRedemptionEnabled && row.legalMemoRef.startsWith('DEV-ONLY')),
+    ).toBe(true);
   });
 
   it('refuses to run in production', async () => {
@@ -72,6 +92,20 @@ describe('bootstrapDatabaseRoles', () => {
       { rolname: 'reef_migrator', elevated: false },
       { rolname: 'reef_readonly', elevated: false },
     ]);
+  });
+
+  it('seeds a dev jurisdiction row per state: spec §4.3 states blocked, the rest S, none P', async () => {
+    await seedReferenceData(prisma, 'development');
+
+    const rows = await prisma.jurisdiction.findMany();
+    const modeOf = Object.fromEntries(rows.map((row) => [row.stateCode, row.mode]));
+
+    expect(rows).toHaveLength(US_STATE_CODES.length);
+    expect(SPEC_BLOCKED_STATES.every((state) => modeOf[state] === 'X')).toBe(true);
+    expect(rows.filter((row) => row.mode === 'P')).toEqual([]);
+    expect(
+      rows.every((row) => !row.scRedemptionEnabled && row.legalMemoRef.startsWith('DEV-ONLY')),
+    ).toBe(true);
   });
 
   it('refuses to run in production', async () => {

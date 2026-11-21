@@ -2,7 +2,7 @@ import type { ApiEnv } from '@reef/config';
 import { createFieldEncryption, type FieldEncryption } from '@reef/crypto-fields';
 
 import { TurnstileVerifier, type BotVerifier } from './bot/turnstile-verifier.js';
-import { systemClock, type Clock } from './clock.js';
+import { systemClock, type Clock } from '../shared/clock.js';
 import { loadAuthKeys, type AuthKeys } from './crypto/auth-keys.js';
 import { MailpitEmailSender, MailpitSmsSender } from './messaging/mailpit-sender.js';
 import type { MessageSenders } from './messaging/message-sender.js';
