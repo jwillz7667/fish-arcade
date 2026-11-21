@@ -46,7 +46,7 @@ export async function createApp(options: CreateAppOptions): Promise<NestFastifyA
     bodyLimit: BODY_LIMIT_BYTES,
     // Trust exactly TRUST_PROXY_HOPS proxies, so request.ip is the client and cannot be spoofed
     // with X-Forwarded-For beyond that.
-    trustProxy: (_address: string, hop: number) => hop < env.TRUST_PROXY_HOPS,
+    trustProxy: (_address: string, hop: number) => hop < (env.TRUST_PROXY_HOPS ?? 0),
     genReqId: requestIdFor,
     // New connections get 503 while draining; idle keep-alive sockets close at once.
     return503OnClosing: true,

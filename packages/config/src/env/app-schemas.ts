@@ -43,8 +43,10 @@ const FIELD_ENCRYPTION_RULES = {
 const HTTP_SHAPE = {
   API_HOST: z.string().min(1).default('0.0.0.0'),
   CORS_ORIGINS: corsOriginsSchema,
-  // Load balancer hops in front of the API, so request.ip is the client, not the proxy.
-  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+  // Load balancer hops in front of the API, so request.ip is the client, not the proxy. Unset
+  // means 0 outside production; production must state it, because a wrong value silently
+  // breaks per-IP limits, geo binding, and the admin IP allowlist.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).optional(),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(300),
   SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),
 };
@@ -69,6 +71,7 @@ export const apiEnvSchema = defineEnvSchema(
     ...GEO_DEV_ONLY_RULES,
     ...KYC_DEV_ONLY_RULES,
     ...ADMIN_DEV_ONLY_RULES,
+    TRUST_PROXY_HOPS: (value: unknown) => value === undefined,
     // Plain-http origins are for local development only.
     CORS_ORIGINS: (value: unknown) =>
       Array.isArray(value) && value.some((origin) => String(origin).startsWith('http:')),
