@@ -267,17 +267,22 @@ enum KycStatus {
 }
 
 model KycCheck {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  level     KycLevel
-  vendor    String
-  vendorRef String    @map("vendor_ref")
-  status    KycStatus @default(pending)
-  reasons   String[]  @default([])
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  level              KycLevel
+  vendor             String
+  vendorRef          String    @map("vendor_ref")
+  status             KycStatus @default(pending)
+  reasons            String[]  @default([])
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  // A false-positive sanctions hit cleared by two Compliance officers (four-eyes approval). The
+  // status stays sanctions_hit as the record of what the vendor said.
+  sanctionsClearedAt DateTime? @map("sanctions_cleared_at") @db.Timestamptz(3)
+  sanctionsClearedBy String?   @map("sanctions_cleared_by") @db.Uuid
 
-  user User @relation(fields: [userId], references: [id])
+  user             User       @relation(fields: [userId], references: [id])
+  sanctionsClearer AdminUser? @relation("KycSanctionsClearer", fields: [sanctionsClearedBy], references: [id])
 
   @@unique([vendor, vendorRef])
   @@index([userId, createdAt])
@@ -841,15 +846,15 @@ enum AdminUserStatus {
 }
 
 model AdminUser {
-  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   // Staff work email from SSO. Not player PII, so it is stored plainly for OIDC matching.
-  email      String          @unique
-  mfaEnabled Boolean         @default(false) @map("mfa_enabled")
-  status     AdminUserStatus @default(active)
+  email       String          @unique
+  mfaEnabled  Boolean         @default(false) @map("mfa_enabled")
+  status      AdminUserStatus @default(active)
   // The IdP identity, bound at the first SSO login. Emails can change hands at the IdP; the
   // (issuer, subject) pair cannot.
-  oidcIssuer  String? @map("oidc_issuer")
-  oidcSubject String? @map("oidc_subject")
+  oidcIssuer  String?         @map("oidc_issuer")
+  oidcSubject String?         @map("oidc_subject")
 
   roles               AdminUserRole[]
   reviewedRedemptions Redemption[]
@@ -858,6 +863,7 @@ model AdminUser {
   assignedTickets     SupportTicket[]
   mfa                 AdminMfa?
   sessions            AdminSession[]
+  clearedSanctions    KycCheck[]      @relation("KycSanctionsClearer")
 
   @@unique([oidcIssuer, oidcSubject])
   @@map("admin_users")
